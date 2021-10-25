@@ -1,11 +1,14 @@
 import csv
+import pathlib
 from typing import List
 
-CSV_DIR = './tests/data/'
-
+### TESTING:
+THIS_DIR = pathlib.Path(__file__).resolve().parent.parent
+CSV_DIR = f'{THIS_DIR}/tests/data/'
+###
 
 class GateRatingSet:
-    
+
     def __init__(self, project: str):
         self.project = project
         self.ratings = self.get_ratings()
