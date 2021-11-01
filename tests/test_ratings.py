@@ -1,5 +1,4 @@
 import unittest
-import sys
 from dlbpy.ratings import GateRatingSet
 
 test_list = []
