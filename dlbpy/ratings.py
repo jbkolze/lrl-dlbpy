@@ -3,11 +3,8 @@ import pathlib
 from typing import List, Optional
 
 ofloat = Optional[float]
+DATA_DIR = pathlib.Path('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/ratings/')
 
-### TESTING:
-THIS_DIR = pathlib.Path(__file__).resolve().parent.parent
-DATA_DIR = f'{THIS_DIR}/tests/data/'
-###
 
 class GateRatingSet:
 
@@ -16,7 +13,7 @@ class GateRatingSet:
         self.ratings = self.get_ratings()
 
     def get_ratings(self):
-        with open(f'{DATA_DIR}{self.project}.json') as json_file:
+        with open(DATA_DIR/f'{self.project}.json') as json_file:
             ratings = json.load(json_file)
         return ratings
 
@@ -31,7 +28,6 @@ class GateRatingSet:
         for gate_group in gate_groups:
             if gate_group[1]:
                 flows.append(self.get_gate_flow(elevation, *gate_group))
-        print(flows)
         return sum(flows)
 
     def get_gate_flow(self, elevation: float, gate: str, opening: float, level: float = None):
@@ -93,5 +89,5 @@ def interp(x: float, x0: float, x1: float, y0: float, y1: float):
 
 if __name__ == '__main__':
     grs = GateRatingSet('BHR')
-    flow = grs.get_total_flow(807.5, mg1 = .15, mg2 = .2, bp1 = .8, bp2 = .6, l1 = 0, l2 = 0)
-    print(f'Flow is: {flow}')
+    flow = grs.get_total_flow(807.5, mg1 = .15, bp1 = .8, bp2 = .6, l1 = 0, l2 = 0)
+    print(f'Total flow: {flow}')
