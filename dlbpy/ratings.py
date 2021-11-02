@@ -1,11 +1,10 @@
-import csv
+import json
 import pathlib
-from typing import List
+from typing import List, Optional
 
-### TESTING:
-THIS_DIR = pathlib.Path(__file__).resolve().parent.parent
-CSV_DIR = f'{THIS_DIR}/tests/data/'
-###
+ofloat = Optional[float]
+DATA_DIR = pathlib.Path('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/ratings/')
+
 
 class GateRatingSet:
 
@@ -14,56 +13,40 @@ class GateRatingSet:
         self.ratings = self.get_ratings()
 
     def get_ratings(self):
-        ratings = {}
-        with open(f'{CSV_DIR}{self.project}.csv') as csv_file:
-            csv_reader = csv.reader(csv_file, quoting=csv.QUOTE_NONNUMERIC)
-            current_rating = None
-            next_openings = False
-            next_elevations = False
-            for row in csv_reader:
-                if next_openings:
-                    current_rating['openings'] = list(filter(str, row))
-                    next_openings = False
-                    next_elevations = True
-                    continue
-                if next_elevations:
-                    current_rating['elevations'] = list(filter(str, row))
-                    next_elevations = False
-                    continue
-                if isinstance(row[0], str):
-                    ratings[row[0]] = {}
-                    current_rating = ratings[row[0]]
-                    if isinstance(row[1], float):
-                        level = int(row[1])
-                        current_rating[level] = {}
-                        current_rating = current_rating[level]
-                    next_openings = True
-                    continue
-                if not 'flows' in current_rating:
-                    current_rating['flows'] = []
-                current_rating['flows'].append(list(filter(str, row)))
+        with open(DATA_DIR/f'{self.project}.json') as json_file:
+            ratings = json.load(json_file)
         return ratings
 
-    def get_total_flow(self, elevation: float, mg1_opening: float, bp1_opening: float, bp2_opening: float, l1: float, l2: float, mg2_opening: float = 0):
+    def get_total_flow(self, elevation: float, mg1: ofloat = None, mg2: ofloat = None, bp1: ofloat = None, bp2: ofloat = None, l1: ofloat = None, l2: ofloat = None):
         flows = []
-        flows.append(self.get_gate_flow(self.ratings, elevation, 'MG1', mg1_opening))
-        flows.append(self.get_gate_flow(self.ratings, elevation, 'BP1', bp1_opening, level = l1))
-        flows.append(self.get_gate_flow(self.ratings, elevation, 'BP2', bp2_opening, level = l2))
-        print(flows)
+        gate_groups = [
+            ('MG1', mg1, l1),
+            ('MG2', mg2, l2),
+            ('BP1', bp1, l1),
+            ('BP2', bp2, l2),
+        ]
+        for gate_group in gate_groups:
+            if gate_group[1]:
+                flows.append(self.get_gate_flow(elevation, *gate_group))
         return sum(flows)
 
-    def get_gate_flow(self, ratings: dict, elevation: float, gate: str, opening: float, level: int = None):
+    def get_gate_flow(self, elevation: float, gate: str, opening: float, level: float = None):
         try:
-            rating = self.ratings[gate]
+            rating_header = self.ratings[gate]
         except KeyError as err:
-            err_msg = f'Gate "{gate}" not found in rating table. Available gates: {[key for key in ratings]}'
+            err_msg = f'{self.project}: Gate {gate} not found in rating table. Available gates: {[key for key in self.ratings]}'
             raise KeyError(err_msg) from err
-        if level is not None:
+        if rating_header['isLevelDependent'] is True:
             try:
-                rating = rating[level]
+                if level is None:
+                    raise ValueError(f'{self.project}: Must provide intake level to calculate flow for {gate}')
+                level_int = int(round(level,0))
+                rating = rating_header['rating'][str(level_int)]
             except KeyError as err:
-                err_msg = f'Gate {gate}: No rating found for intake level {level}.  Available levels: {[level for level in rating]}'
+                err_msg = f'{self.project}: Gate {gate}: No rating found for intake level {level}.  Available levels: {[level for level in rating_header["rating"]]}'
                 raise KeyError(err_msg) from err
+        else:
+            rating = rating_header['rating']
         opening_index = get_interp_index(rating['openings'], opening)
         if opening_index % 1 == 0:
             opening_flows = rating['flows'][opening_index]
@@ -106,5 +89,5 @@ def interp(x: float, x0: float, x1: float, y0: float, y1: float):
 
 if __name__ == '__main__':
     grs = GateRatingSet('BHR')
-    flow = grs.get_total_flow(807.5, .15, .8, .6, 0, 0)
-    print(f'Flow is: {flow}')
+    flow = grs.get_total_flow(807.5, mg1 = .15, bp1 = .8, bp2 = .6, l1 = 0, l2 = 0)
+    print(f'Total flow: {flow}')
