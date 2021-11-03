@@ -1,14 +1,14 @@
 """Determine flows from JSON-formatted gate ratings data.
 
-This module provide a GateRatingSet class to ingest gate rating data from a
+This module provides a GateRatingSet class to ingest gate rating data from a
 JSON-formatted file.  Methods are provided to determine total flows or flows
 per gate/bypass, but the primary intended use is to enter the elevation and
 all gate settings into a single get_total_flows call that returns the total
 outflow of the project.
 
 Typical usage example:
-    bhr = GateRatingSet()
-    outflow = bhr.get_total_flow(785.5, mg1=0, bp1=1.0, l1=0, bp2=0.4, l2=0)
+    grs = GateRatingSet('BHR')
+    outflow = grs.get_total_flow(785.5, mg1=0, bp1=1.0, l1=0, bp2=0.4, l2=0)
 
 Attributes:
     ofloat (alias): Alias for optional float values (for missing/unused gates)
