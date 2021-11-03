@@ -1,4 +1,4 @@
-"""Determine flows from JSON-formatted gate ratings data.
+"""Compute project outflows using JSON-formatted gate ratings data.
 
 This module provides a GateRatingSet class to ingest gate rating data from a
 JSON-formatted file.  Methods are provided to determine total flows or flows
