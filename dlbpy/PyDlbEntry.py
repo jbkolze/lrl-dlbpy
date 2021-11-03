@@ -1,8 +1,8 @@
 from tkinter import *
 import time
 import datetime
-from Calendar import Calendar
 import calendar
+import ratings
 from os.path import exists
 def GetBasin(lake):
     basin_lakes = {'GRB':['GRR','NRR','BRR','RRR'],'MAB':['WFR','CBR','CCK','WHL'],
@@ -24,8 +24,6 @@ class gui:
         MainFrame = Frame()
         canvas = Canvas(self.root, height=500, width= 500, bg="white")
         canvas.pack()
-        self.Date = Calendar(self.root,firstweekday=calendar.SUNDAY)
-        self.Date.pack(side=TOP)
         self.tkvar = StringVar(self.root)
         self.tkvar.set('Choose Lake')
         lakesort= list(self.Lakes.keys())
@@ -80,6 +78,7 @@ class gui:
         newWindow = Toplevel(self.root)
         self.recheck = False
         self.lkname = lkname
+        self.flow = ratings.GateRatingSet(self.lkname)
         self.infobox = Label(newWindow,font=("Arial", 25))
         self.infobox.grid(row=7,column=12,rowspan=2)
         Label(newWindow,text = lkname,font=("Arial", 25)).grid(row = 0, column = 12, rowspan=2)
@@ -95,15 +94,19 @@ class gui:
         self.TimeF = []
         self.ElevF = []
         self.TailWaterF = []
+        self.Entry_dates = []
+        for i in range(30):
+            year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-i*60*60*24)
+            self.Entry_dates.append(str(month)+'/'+str(day)+'/'+str(year))
         year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime()
-        self.Date = str(month)+'/'+str(day)+'/'+str(year)
-        Label(newWindow,text =self.Date,font=("Arial", 25)).grid(row = 2, column = 12,rowspan=2)
-        year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-24*60*60)
-        yesterday = str(month)+'/'+str(day)+'/'+str(year)
-        dates = [yesterday]*3 +[self.Date]+['']*16
-        times = ['1200','1800','2400','0600'] + ['']*16
-        self.Times = times
+        self.TkDate = StringVar(newWindow)
+        self.TkDate.set(str(month)+'/'+str(day)+'/'+str(year))
+        self.Date = self.TkDate.get()
+        DateDropDown = OptionMenu(newWindow, self.TkDate, *self.Entry_dates)
+        DateDropDown.grid(row = 2, column = 12,rowspan=2)
+        self.TkDate.trace('w', self.Load)
         self.gates = []
+        self.FlowL = []
         for j in range(len( self.Gate_configuration[lkname])):
             self.gates.append([])
         for i in range(20):
@@ -121,8 +124,8 @@ class gui:
             self.TimeF[i].grid(row=i+1,column=1)
             self.ElevF[i].grid(row=i+1,column=2)
             self.TailWaterF[i].grid(row=i+1,column=3)
-            self.DateF[i].insert(END, dates[i])
-            self.TimeF[i].insert(END, times[i])
+            self.FlowL.append(Label(newWindow))
+            self.FlowL[i].grid(row=i+1,column=j+5)
 #Weather
         Label(newWindow,text="Pool").grid(row=21,column=0)
         Label(newWindow,text="24 Hour").grid(row=22,column=0)
@@ -160,8 +163,8 @@ class gui:
         self.maxTemp.grid(row=24,column=9)
         self.tailTemp.grid(row=24,column=10)
 #Aniticipated
-        Label(newWindow,text="Anticipated next 06:00 Outlet Settings").grid(row=22,column=0,columnspan=3)
-        r,c = 25,0
+        Label(newWindow,text="Anticipated next 06:00 Outlet Settings").grid(row=25,column=0,columnspan=3)
+        r,c = 26,0
         for i in range(len( self.Gate_configuration[lkname])):
             Label(newWindow,text= self.Gate_configuration[lkname][i][0]).grid(row=r,column=c)
             c+=1
@@ -226,12 +229,15 @@ class gui:
         f.flush()
         f.close()
     def Validate(self,event):
-#        try:
+        try:
+            flow_calc = False
+            index = -1
             gn = 0
             if not (event.widget.get() == '') and not self.recheck:
                 self.infobox.configure(text="")
                 if event.widget in self.ElevF:
                     min_val, max_val = self.Elev_Limits[self.lkname]
+                    index = self.ElevF.index(event.widget)
                 if event.widget in self.TailWaterF:
                     min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
                 for i in range(len(self.Gate_configuration[self.lkname])):
@@ -240,6 +246,7 @@ class gui:
                             min_val,max_val=float(self.Gate_configuration[self.lkname][i][2]),float(self.Gate_configuration[self.lkname][i][3])
                         else:
                             min_val,max_val = 0,float(self.Gate_configuration[self.lkname][i][2])
+                        index = self.gates[i].index(event.widget)
                         if self.Gate_configuration[self.lkname][i][1][0] == 'L':
                             try:
                                 int(event.widget.get())
@@ -248,6 +255,10 @@ class gui:
                                 self.recheck = True
                                 event.widget.focus_set()
                                 return
+                if event.widget in [self.curTemp,self.minTemp,self.maxTemp]:
+                    min_val, max_val = -50,130
+                if event.widget in [self.precip,self.snow,self.swe]:
+                    min_val, max_val = 0,50
                 val = float(event.widget.get())
                 if val < min_val:
                     self.infobox.configure(text="Value is too low")
@@ -261,10 +272,25 @@ class gui:
                     return
             else:
                 self.recheck = False
- #       except:
- #           self.infobox.configure(text="Must be a number.")
- #           event.widget.focus_set()
-    def Load(self):
+            if index > -1:
+                try:
+                    gates = {}
+                    for i in range(len(self.Gate_configuration[self.lkname])):
+                        if self.Gate_configuration[self.lkname][i][1] in ['L1','L2']:
+                            gates[self.Gate_configuration[self.lkname][i][1]] = int(self.gates[i][index].get())
+                        else:
+                            gates[self.Gate_configuration[self.lkname][i][1]] = float(self.gates[i][index].get())
+                    for key in ['MG1','MG2','BP1','BP2','L1','L2']:
+                        if key not in gates.keys():
+                            gates[key] = None
+                    self.FlowL[index].configure(text=str(self.flow.get_total_flow(float(self.ElevF[index].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
+                except:
+                    pass
+        except:
+            self.infobox.configure(text="Must be a number.")
+            event.widget.focus_set()
+    def Load(self,*args):
+        self.Date = self.TkDate.get()
         filename = 'c:/temp/'+self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt'
         if exists(filename):
             self.Clear()
@@ -295,9 +321,11 @@ class gui:
                     elif meta[4] in ['MG1','BP1','L1','MG2','BP2','L2']:
                         if meta[4] in Gates:
                             self.gates[Gates.index(meta[4])][row].insert(0,data[:-1])
+                            self.gates[Gates.index(meta[4])][row].event_generate('<FocusOut>')
                         else:
                             Gates.append(meta[4])
                             self.gates[Gates.index(meta[4])][row].insert(0,data[:-1])
+                            self.gates[Gates.index(meta[4])][row].event_generate('<FocusOut>')
                     elif meta[4].find('_ANTICIPATED_')>0:
                         self.a_gates[a].insert(0,data[:-1])
                         a+=1
@@ -325,7 +353,15 @@ class gui:
                         print(line)
                         self.r_station[r].insert(0,data[:-1])
                         r+=1
-                                        
+        else:
+            self.Clear()
+            year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-(self.Entry_dates.index(self.Date)+1)*60*60*24)
+            yesterday = str(month)+'/'+str(day)+'/'+str(year)
+            dates = [yesterday]*3 +[self.Date]+['']*16
+            times = ['1200','1800','2400','0600'] + ['']*16
+            for i in range(20):
+                self.DateF[i].insert(0,dates[i])
+                self.TimeF[i].insert(0,times[i])
                                             
     def Clear(self):
         for O in self.DateF:
