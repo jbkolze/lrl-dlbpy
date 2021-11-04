@@ -4,6 +4,7 @@ import datetime
 import calendar
 import ratings
 from os.path import exists
+import re
 def GetBasin(lake):
     basin_lakes = {'GRB':['GRR','NRR','BRR','RRR'],'MAB':['WFR','CBR','CCK','WHL'],
                'MWB':['CHL','CMR','MNR','PRR'],'SRB':['TVL'],'UKL':['CFK','BHR','CRR'],
@@ -12,7 +13,10 @@ def GetBasin(lake):
         if lake in basin_lakes[key]:
             return key
     return ''
-
+def pad(t,l,s):
+    while len(t) < l:
+        t = s+t
+    return t
 class gui:
     def __init__(self):
         self.Lakes = {'Barren':'BRR','Buckhorn':'BHR','Brookville':'BVR',
@@ -39,6 +43,8 @@ class gui:
         self.Load_DLB_Interface(self.Lakes[self.tkvar.get()],'20OCT2021')
          
     def Load_DLB_Interface(self,lkname,date):
+        #Need to get upper evelvations for top of Dam
+        #Lower should be winter pool -5
         self.Elev_Limits = {'BHR':[750,840],'BRR':[520,590],'BVR':[713,775],'CBR':[991,1023],'CCK':[800,883],'CFK':[1000,1055],'CHL':[638,695],'CMR':[626,704],
                              'CRR':[713,765],'GRR':[635,713],'MNR':[515,556],'NRR':[480,560],'PRR':[506,555],'RRR':[465,524],'TVL':[515,592],'WFR':[670,700],'WHL':[685,795]}
         self.Gate_configuration = {'BHR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1)],
@@ -112,6 +118,7 @@ class gui:
         for i in range(20):
             self.DateF.append(Entry(newWindow))
             self.TimeF.append(Entry(newWindow))
+            self.TimeF[i].bind('<FocusOut>',self.Validate_time)
             self.ElevF.append(Entry(newWindow))
             self.ElevF[i].bind('<FocusOut>',self.Validate)
             self.TailWaterF.append(Entry(newWindow))
@@ -126,6 +133,7 @@ class gui:
             self.TailWaterF[i].grid(row=i+1,column=3)
             self.FlowL.append(Label(newWindow))
             self.FlowL[i].grid(row=i+1,column=j+5)
+        Label(newWindow,text="OutFlow").grid(row=0,column=j+5)
 #Weather
         Label(newWindow,text="Pool").grid(row=21,column=0)
         Label(newWindow,text="24 Hour").grid(row=22,column=0)
@@ -187,7 +195,8 @@ class gui:
         submit.grid(row=34,column=8)
         self.Load()
     def Submit(self):
-        Modtime = time.ctime()
+        year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime()
+        Modtime = str(year)+pad(str(month),2,'0')+pad(str(day),2,'0')+pad(str(hour),2,'0')+pad(str(Min),2,'0')+pad(str(sec),2,'0')
         basin = GetBasin(self.lkname)
         f = open('c:/temp/'+self.lkname+'pydlb.txt','w')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date +' '+ ' 00000 :' + Modtime + '\n')
@@ -228,6 +237,21 @@ class gui:
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 REMARKS :' + self.remarks.get() + '\n')
         f.flush()
         f.close()
+    def Validate_time(self,event):
+        tm = re.compile("([01]?[0-9]|2[0-3])[0-5][0-9]")
+        if tm.match(event.widget.get()) or event.widget.get() == '':
+            self.DateF[self.TimeF.index(event.widget)].delete(0,"end")
+            if int(event.widget.get()) > 600:
+                year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-(self.Entry_dates.index(self.Date)+1)*60*60*24)
+                yesterday = str(month)+'/'+str(day)+'/'+str(year)
+                self.DateF[self.TimeF.index(event.widget)].insert(0,yesterday)
+            else:
+                self.DateF[self.TimeF.index(event.widget)].insert(0,self.Date)
+            self.infobox.configure(text="")
+        else:
+            self.infobox.configure(text="Time is not in hhmm format")
+            self.recheck = True
+            event.widget.focus_set()
     def Validate(self,event):
         try:
             flow_calc = False
@@ -285,7 +309,7 @@ class gui:
                             gates[key] = None
                     self.FlowL[index].configure(text=str(self.flow.get_total_flow(float(self.ElevF[index].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
                 except:
-                    pass
+                    self.FlowL[index].configure(text='')
         except:
             self.infobox.configure(text="Must be a number.")
             event.widget.focus_set()
@@ -350,7 +374,6 @@ class gui:
                     elif meta[4] == 'REMARKS':
                         self.remarks.insert(0,data[:-1])
                     else:
-                        print(line)
                         self.r_station[r].insert(0,data[:-1])
                         r+=1
         else:
@@ -364,14 +387,12 @@ class gui:
                 self.TimeF[i].insert(0,times[i])
                                             
     def Clear(self):
-        for O in self.DateF:
-            O.delete(0,"end")
-        for O in self.TimeF:
-            O.delete(0,"end")
-        for O in self.ElevF:
-            O.delete(0,"end")
-        for O in self.TailWaterF:
-            O.delete(0,"end")
+        for i in range(20):
+            self.DateF[i].delete(0,"end")
+            self.TimeF[i].delete(0,"end")
+            self.ElevF[i].delete(0,"end")
+            self.TailWaterF[i].delete(0,"end")
+            self.FlowL[i].configure(text="")
         for i in range(len(self.gates)):
             for O in self.gates[i]:
                 O.delete(0,"end")
