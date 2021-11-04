@@ -18,7 +18,7 @@ Attributes:
 
 import json
 import pathlib
-from typing import List, Optional
+from typing import List, Optional, Union
 
 ofloat = Optional[float]
 DATA_DIR = pathlib.Path('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/ratings/')
@@ -153,7 +153,7 @@ class GateRatingSet:
         return round(flow)
     
 
-def get_interp_index(list: List[float], value: float) -> int | float:
+def get_interp_index(list: List[float], value: float) -> Union[int, float]:
     """Returns the interpolated index of a value in the given list.
 
     Example:
