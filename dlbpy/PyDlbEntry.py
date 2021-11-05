@@ -195,6 +195,11 @@ class gui:
         submit.grid(row=34,column=8)
         self.Load()
     def Submit(self):
+        err = self.find_submit_errors()
+        if err:
+            self.infobox.configure(text=err)
+            return False
+        self.infobox.configure(text='DLB Submitted')
         year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime()
         Modtime = str(year)+pad(str(month),2,'0')+pad(str(day),2,'0')+pad(str(hour),2,'0')+pad(str(Min),2,'0')+pad(str(sec),2,'0')
         basin = GetBasin(self.lkname)
@@ -237,6 +242,21 @@ class gui:
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 REMARKS :' + self.remarks.get() + '\n')
         f.flush()
         f.close()
+        return True
+
+    def find_submit_errors(self) -> str:
+        """Check for data entry errors before DLB is processed.
+
+        Returns:
+            str: A string containing an error message for the first error discovered,
+                or a blank string if no errors are found.
+        """
+        if float(self.maxTemp.get()) < float(self.minTemp.get()):
+            return 'Temp: Min greater than max'
+        if not float(self.minTemp.get()) <= float(self.curTemp.get()) <= float(self.maxTemp.get()):
+            return 'Temp: Current not between min and max'
+        return ''
+
     def Validate_time(self,event):
         tm = re.compile("([01]?[0-9]|2[0-3])[0-5][0-9]")
         if tm.match(event.widget.get()) or event.widget.get() == '':
@@ -252,6 +272,7 @@ class gui:
             self.infobox.configure(text="Time is not in hhmm format")
             self.recheck = True
             event.widget.focus_set()
+
     def Validate(self,event):
         try:
             flow_calc = False
