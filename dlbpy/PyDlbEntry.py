@@ -260,6 +260,8 @@ class gui:
         """
         required_field_error = self.check_required_fields()
         if required_field_error: return required_field_error
+        additional_gates_error = self.check_additional_gate_entries()
+        if additional_gates_error: print(additional_gates_error)
         if float(self.maxTemp.get()) < float(self.minTemp.get()):
             return 'Temp: Min greater than max'
         if not float(self.minTemp.get()) <= float(self.curTemp.get()) <= float(self.maxTemp.get()):
@@ -297,6 +299,18 @@ class gui:
             return f'The following required fields are missing: {missing_fields}'
         return ''
 
+    def check_additional_gate_entries(self) -> str:
+        """Check that all additional gate entry rows have complete data.
+
+        Returns:
+            str: A string containing an error message indicating the gate entry row
+                containing incomplete data, or a blank string if no incomplete gate
+                entry rows are found.
+        """
+        for i, row in enumerate(self.gate_rows[4:]):
+            if any([x.get() for x in row]) and not all(x.get() for x in row):
+                return f'Incomplete data entered for gate entry row #{i + 5}'
+        return ''
 
     def Validate_time(self,event):
         tm = re.compile("([01]?[0-9]|2[0-3])[0-5][0-9]")
