@@ -133,6 +133,13 @@ class gui:
             self.TailWaterF[i].grid(row=i+1,column=3)
             self.FlowL.append(Label(newWindow))
             self.FlowL[i].grid(row=i+1,column=j+5)
+        self.gate_rows = list(zip(
+                self.DateF,
+                self.TimeF,
+                self.ElevF,
+                self.TailWaterF,
+                *self.gates,
+            ))
         Label(newWindow,text="OutFlow").grid(row=0,column=j+5)
 #Weather
         Label(newWindow,text="Pool").grid(row=21,column=0)
@@ -245,17 +252,51 @@ class gui:
         return True
 
     def find_submit_errors(self) -> str:
-        """Check for data entry errors before DLB is processed.
+        """Checks for data entry errors before DLB is processed.
 
         Returns:
             str: A string containing an error message for the first error discovered,
                 or a blank string if no errors are found.
         """
+        required_field_error = self.check_required_fields()
+        if required_field_error: return required_field_error
         if float(self.maxTemp.get()) < float(self.minTemp.get()):
             return 'Temp: Min greater than max'
         if not float(self.minTemp.get()) <= float(self.curTemp.get()) <= float(self.maxTemp.get()):
             return 'Temp: Current not between min and max'
         return ''
+
+    def check_required_fields(self) -> str:
+        """Checks for entered values in every required field.
+
+        Returns:
+            str: A string containing an error message listing some or all of the
+                missing fields, or a blank string if no required fields are missing.
+        """
+        for row in self.gate_rows[:4]:  # 1200, 1800, 2400, and 0600
+            if not all(entry.get() for entry in row):
+                return f'Missing value(s) in gate table at {row[1].get()} on {row[0].get()}'
+        required_fields = [
+            ["24-Hour Pool Change", self.change],
+            ["24-Hour Precip", self.precip],
+            ["Snow on Ground", self.snow],
+            ["Snow Water Equivalent", self.swe],
+            ["Current Temperature", self.curTemp],
+            ["Min. Temperature", self.minTemp],
+            ["Max. Temperature", self.maxTemp],
+            ["Tailwater Temperature", self.tailTemp],
+        ]
+        for i, station in enumerate(self.River_Stations[self.lkname]):
+            required_fields.append([f'{station} Stage', self.r_station[i]])
+        for i, gate in enumerate(self.Gate_configuration[self.lkname]):
+            required_fields.append([f'Ant. {gate[0]}', self.a_gates[i]])
+        missing_fields = [x[0] for x in required_fields if x[1].get() == '']
+        if self.tkvar2.get() == 'Select Weather':
+            missing_fields.append('Present Weather')
+        if missing_fields:
+            return f'The following required fields are missing: {missing_fields}'
+        return ''
+
 
     def Validate_time(self,event):
         tm = re.compile("([01]?[0-9]|2[0-3])[0-5][0-9]")
