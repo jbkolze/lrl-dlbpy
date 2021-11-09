@@ -262,10 +262,6 @@ class gui:
         if required_field_error: return required_field_error
         additional_gates_error = self.check_additional_gate_entries()
         if additional_gates_error: print(additional_gates_error)
-        if float(self.maxTemp.get()) < float(self.minTemp.get()):
-            return 'Temp: Min greater than max'
-        if not float(self.minTemp.get()) <= float(self.curTemp.get()) <= float(self.maxTemp.get()):
-            return 'Temp: Current not between min and max'
         return ''
 
     def check_required_fields(self) -> str:
@@ -300,7 +296,7 @@ class gui:
         return ''
 
     def check_additional_gate_entries(self) -> str:
-        """Check that all additional gate entry rows have complete data.
+        """Checks that all additional gate entry rows have complete data.
 
         Returns:
             str: A string containing an error message indicating the gate entry row
@@ -310,6 +306,19 @@ class gui:
         for i, row in enumerate(self.gate_rows[4:]):
             if any([x.get() for x in row]) and not all(x.get() for x in row):
                 return f'Incomplete data entered for gate entry row #{i + 5}'
+        return ''
+
+    def check_temperature_values(self) -> str:
+        """Checks that temperature values are entered correctly.
+
+        Returns:
+            str: A string containing an error message or an empty string if no
+                errors are found.
+        """
+        if float(self.maxTemp.get()) < float(self.minTemp.get()):
+            return 'Temp: Min greater than max'
+        if not float(self.minTemp.get()) <= float(self.curTemp.get()) <= float(self.maxTemp.get()):
+            return 'Temp: Current not between min and max'
         return ''
 
     def Validate_time(self,event):
