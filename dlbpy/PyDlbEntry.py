@@ -258,10 +258,15 @@ class gui:
             str: A string containing an error message for the first error discovered,
                 or a blank string if no errors are found.
         """
-        required_field_error = self.check_required_fields()
-        if required_field_error: return required_field_error
-        additional_gates_error = self.check_additional_gate_entries()
-        if additional_gates_error: print(additional_gates_error)
+        check_functions = [
+            self.check_required_fields,
+            self.check_additional_gate_entries,
+            self.check_temperature_values,
+        ]
+        for check_function in check_functions:
+            check_error = check_function()
+            if check_error:
+                return check_error
         return ''
 
     def check_required_fields(self) -> str:
