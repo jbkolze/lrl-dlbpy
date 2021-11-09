@@ -1,11 +1,12 @@
-import ttk
 import calendar
 try:
     import Tkinter
     import tkFont
+    import ttk
 except ImportError: # py3k
     import tkinter as Tkinter
     import tkinter.font as tkFont
+    from tkinter import ttk
 def get_calendar(locale, fwday):
     # instantiate proper calendar class
     if locale is None:
