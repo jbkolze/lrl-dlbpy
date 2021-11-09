@@ -1,12 +1,24 @@
 """Compute project outflows using JSON-formatted gate ratings data.
+<<<<<<< HEAD
+=======
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
 This module provides a GateRatingSet class to ingest gate rating data from a
 JSON-formatted file.  Methods are provided to determine total flows or flows
 per gate/bypass, but the primary intended use is to enter the elevation and
 all gate settings into a single get_total_flows call that returns the total
 outflow of the project.
+<<<<<<< HEAD
 Typical usage example:
     grs = GateRatingSet('BHR')
     outflow = grs.get_total_flow(785.5, mg1=0, bp1=1.0, l1=0, bp2=0.4, l2=0)
+=======
+
+Typical usage example:
+    grs = GateRatingSet('BHR')
+    outflow = grs.get_total_flow(785.5, mg1=0, bp1=1.0, l1=0, bp2=0.4, l2=0)
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
 Attributes:
     ofloat (alias): Alias for optional float values (for missing/unused gates)
     DATA_DIR (Path): Path pointing to the directory that contains the
@@ -15,7 +27,7 @@ Attributes:
 
 import json
 import pathlib
-from typing import List, Optional
+from typing import List, Optional, Union
 
 ofloat = Optional[float]
 DATA_DIR = pathlib.Path('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/ratings/')
@@ -23,9 +35,17 @@ DATA_DIR = pathlib.Path('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/ratings/')
 
 class GateRatingSet:
     """Retrieves JSON gate ratings data and computes outflows.
+<<<<<<< HEAD
     When initialized, will read gate ratings data from a JSON-formatted file
     and populate the ratings dictionary attribute.  Flows can then be computed
     per gate or in total using the provided methods.
+=======
+
+    When initialized, will read gate ratings data from a JSON-formatted file
+    and populate the ratings dictionary attribute.  Flows can then be computed
+    per gate or in total using the provided methods.
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
     Attributes:
         project (str): 3-letter project code, e.g. 'BHR'.
         ratings (dict): Retrieved gate ratings data.
@@ -33,6 +53,10 @@ class GateRatingSet:
 
     def __init__(self, project: str):
         """Inits GateRatingSet for given project with corresponding gate rating data.
+<<<<<<< HEAD
+=======
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
         Args:
             project (str): 3-letter project code, e.g. 'BHR'.
         """
@@ -41,6 +65,10 @@ class GateRatingSet:
 
     def get_ratings(self):
         """Returns a gate ratings dictionary from the project's JSON file.
+<<<<<<< HEAD
+=======
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
         Format of the returned dictionary is expected to be as follows:
             ratings: {
                 isLevelDependent (bool),
@@ -65,8 +93,15 @@ class GateRatingSet:
 
     def get_total_flow(self, elevation: float, mg1: ofloat = None, mg2: ofloat = None, bp1: ofloat = None, bp2: ofloat = None, l1: ofloat = None, l2: ofloat = None):
         """Compute the project's total outflow from the elevation and gate settings.
+<<<<<<< HEAD
         Any gates that are closed or unused at the project can be left out
         (defaulting to None) or set to 0.
+=======
+
+        Any gates that are closed or unused at the project can be left out
+        (defaulting to None) or set to 0.
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
         Args:
             elevation (float): Pool elevation in NGVD29.
             mg1 (ofloat, optional): Main Gate #1 opening in tenths. Defaults to none.
@@ -76,6 +111,10 @@ class GateRatingSet:
             bp2 (ofloat, optional): Bypass #2 opening in tenths. Defaults to None.
             l1 (ofloat, optional): Multi-level intake #1 setting. Defaults to None.
             l2 (ofloat, optional): Multi-level intake #2 setting. Defaults to None.
+<<<<<<< HEAD
+=======
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
         Returns:
             int: Total outflow based on the given elevation and gate settings.
         """
@@ -93,8 +132,15 @@ class GateRatingSet:
 
     def get_gate_flow(self, elevation: float, gate: str, opening: float, level: float = None):
         """Computes the outflow from a single gate.
+<<<<<<< HEAD
         Computes the outflow from a single gate given the corresponding pool elevation,
         gate opening, and multi-level setting (if required).
+=======
+
+        Computes the outflow from a single gate given the corresponding pool elevation,
+        gate opening, and multi-level setting (if required).
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
         Args:
             elevation (float): Pool elevation.
             gate (str): Abbreviated gate identifier.  Typical values are:
@@ -102,10 +148,18 @@ class GateRatingSet:
             opening (float): Opening of the gate in tenths of total opening.
             level (float, optional): The corresponding multi-level setting. Not
                 required if the rating isn't level-dependent.  Defaults to None.
+<<<<<<< HEAD
+=======
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
         Raises:
             KeyError: The given gate and/or multi-level setting was not found in the 
                 rating table.
             ValueError: No multi-level setting was given for level dependent rating.
+<<<<<<< HEAD
+=======
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
         Returns:
             int: Calculated outflow based on gate rating and provided settings.
         """
@@ -139,16 +193,30 @@ class GateRatingSet:
         return round(flow)
     
 
+<<<<<<< HEAD
 def get_interp_index(list: List[float], value: float) -> float:
     """Returns the interpolated index of a value in the given list.
+=======
+def get_interp_index(list: List[float], value: float) -> Union[int, float]:
+    """Returns the interpolated index of a value in the given list.
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
     Example:
         ex_list = [0, 5, 10, 15, 20]
         ex_value = 7
         x = get_interp_index(ex_list, ex_value)
         x == 1.4  # True
+<<<<<<< HEAD
     Args:
         list (List[float]): A sorted list of floats.
         value (float): The value for which to compute an interpolated index.
+=======
+
+    Args:
+        list (List[float]): A sorted list of floats.
+        value (float): The value for which to compute an interpolated index.
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
     Raises:
         ValueError: The value was outside the bounds of the list.
     """
@@ -164,8 +232,15 @@ def get_interp_index(list: List[float], value: float) -> float:
 
 def get_interp_list(lists: List[List[float]], index: float):
     """Returns an interpolated list of floats using a weighted index.
+<<<<<<< HEAD
     A weighted index of 1.3 would compute an interpolated list between List[1] and
     List[2] that contains values 30% between the values in each list.
+=======
+
+    A weighted index of 1.3 would compute an interpolated list between List[1] and
+    List[2] that contains values 30% between the values in each list.
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
     Example:
         ex_list1 = [0, 10, 20]
         ex_list2 = [5, 15, 25]
@@ -173,6 +248,10 @@ def get_interp_list(lists: List[List[float]], index: float):
         ex_index = 0.4
         x = get_interp_list(ex_lists, ex_index)
         x == [2, 12, 22]  # True
+<<<<<<< HEAD
+=======
+
+>>>>>>> a5253838413ccb430534e5622cc68ef423a50e5f
     Args:
         lists (List[List[float]]): A list of lists of floats from which a single
             interpolated list of floats will be computed.
