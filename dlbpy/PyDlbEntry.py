@@ -206,7 +206,6 @@ class gui:
         if err:
             self.infobox.configure(text=err)
             return False
-        self.infobox.configure(text='DLB Submitted')
         year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime()
         Modtime = str(year)+pad(str(month),2,'0')+pad(str(day),2,'0')+pad(str(hour),2,'0')+pad(str(Min),2,'0')+pad(str(sec),2,'0')
         basin = GetBasin(self.lkname)
@@ -249,6 +248,7 @@ class gui:
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 REMARKS :' + self.remarks.get() + '\n')
         f.flush()
         f.close()
+        self.infobox.configure(text='DLB Submitted')
         return True
 
     def find_submit_errors(self) -> str:
