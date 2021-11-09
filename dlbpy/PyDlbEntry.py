@@ -199,7 +199,7 @@ class gui:
         Modtime = str(year)+pad(str(month),2,'0')+pad(str(day),2,'0')+pad(str(hour),2,'0')+pad(str(Min),2,'0')+pad(str(sec),2,'0')
         basin = GetBasin(self.lkname)
         f = open('c:/temp/'+self.lkname+'pydlb.txt','w')
-        f.write(basin + ' ' + self.lkname + ' ' + self.Date +' '+ ' 00000 :' + Modtime + '\n')
+        f.write(basin + ' ' + self.lkname + ' ' + self.Date +' 0000 MODTIME:' + Modtime + '\n')
         f.write('#Lake Levels and Gate Setting\n')
         for i in range(15):
             if self.DateF[i].get():
