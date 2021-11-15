@@ -3,9 +3,17 @@ import time
 import datetime
 import calendar
 import ratings
+import os
 from os.path import exists
 import re
+from tkinter import messagebox as mb
 def GetBasin(lake):
+    """Checks the basin_lakes dictionary for the lake code
+
+        Returns:
+            str: A string containing the basin code or an empty string if the lake code
+            is not valid
+    """
     basin_lakes = {'GRB':['GRR','NRR','BRR','RRR'],'MAB':['WFR','CBR','CCK','WHL'],
                'MWB':['CHL','CMR','MNR','PRR'],'SRB':['TVL'],'UKL':['CFK','BHR','CRR'],
                'UWB':['HTR','SRR','MSR'],'WWB':['BVR']}
@@ -14,10 +22,19 @@ def GetBasin(lake):
             return key
     return ''
 def pad(t,l,s):
+    """Pads string t with character s until length is not less than l
+
+        Returns:
+            str: A string containing the contents of t with s appended to the front a number of times
+            to make the total length equal to l
+    """
     while len(t) < l:
         t = s+t
     return t
 class gui:
+    """Build the base menu to allow the selection of the lake for the DLB
+    Lakes are presented in a dropdown menu sorted alphabeticly.  A "Load Entry Sheet" Button
+    will launch the DLB Entry Form"""
     def __init__(self):
         self.Lakes = {'Barren':'BRR','Buckhorn':'BHR','Brookville':'BVR',
                       'Caesar Creek':'CCK','Cagles Mill':'CMR','Carr Creek':'CFK','Cave Run':'CRR','C J Brown':'CBR','C M Harden':'CHL',
@@ -31,22 +48,23 @@ class gui:
         self.tkvar = StringVar(self.root)
         self.tkvar.set('Choose Lake')
         lakesort= list(self.Lakes.keys())
-        print (type(lakesort))
         lakesort.sort()
         popupMenu1 = OptionMenu(canvas, self.tkvar, *lakesort)
-        popupMenu1.pack()
-        self.tkvar.trace('w', self.change_dropdown)
+        popupMenu1.grid(row=0,column = 0, rowspan=2, columnspan=2)
+        l = Label(canvas,text="                                 ")
+        l.grid(row=3,column=0,rowspan=2,columnspan=2)
+        Launch = Button(canvas,text="Load Entry Sheet",command = self.LoadDLB)
+        Launch.grid(row=5, column =0, rowspan=2, columnspan=2)
         self.root.mainloop()
-    def change_dropdown(self,*args):
-        print("Chosen lake " + self.tkvar.get())
-        print("Lake Code: " + self.Lakes[self.tkvar.get()])
-        self.Load_DLB_Interface(self.Lakes[self.tkvar.get()],'20OCT2021')
+    def LoadDLB(self):
+        self.Load_DLB_Interface(self.Lakes[self.tkvar.get()])
          
-    def Load_DLB_Interface(self,lkname,date):
-        #Need to get upper evelvations for top of Dam
-        #Lower should be winter pool -5
-        self.Elev_Limits = {'BHR':[750,840],'BRR':[520,590],'BVR':[713,775],'CBR':[991,1023],'CCK':[800,883],'CFK':[1000,1055],'CHL':[638,695],'CMR':[626,704],
-                             'CRR':[713,765],'GRR':[635,713],'MNR':[515,556],'NRR':[480,560],'PRR':[506,555],'RRR':[465,524],'TVL':[515,592],'WFR':[670,700],'WHL':[685,795]}
+    def Load_DLB_Interface(self,lkname):
+        """Gui interface is built dynamiclly using dictionary lookups to setup gate configurations, data validation criteria, and river stations using the lake code as the lookup"""
+        self.Elev_Limits = {'BHR':[752,877],'BRR':[523,618],'BVR':[735,775],'CBR':[1004,1040],'CCK':[841,904],'CFK':[1012,1083],'CHL':[635,712],'CMR':[631,730],
+                             'CRR':[719,788],'GRR':[663,734],'MNR':[533,574],'NRR':[487,581],'PRR':[527,564],'RRR':[465,554],'TVL':[540,623],'WFR':[670,735.5],'WHL':[724,819]}
+        #Upper Elevation is top of Dam
+        #Lower Elevation is winter pool -5
         self.Gate_configuration = {'BHR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1)],
                               'BRR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',2),('Bypass 2 Level','L2',2)],
                               'BVR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',6),('Bypass 2 Level','L2',6)],
@@ -85,9 +103,9 @@ class gui:
         self.recheck = False
         self.lkname = lkname
         self.flow = ratings.GateRatingSet(self.lkname)
-        self.infobox = Label(newWindow,font=("Arial", 25))
-        self.infobox.grid(row=7,column=12,rowspan=2)
         Label(newWindow,text = lkname,font=("Arial", 25)).grid(row = 0, column = 12, rowspan=2)
+        #Gate and Elevations Section.  Entries are stored as arrays of Entry Objects.
+        #Gate arrays are stored in an array and use the lookup to determine which gate a given array entry is from.
         Label(newWindow,text ="Date").grid(row = 0, column = 0)
         Label(newWindow,text ="Time").grid(row = 0, column = 1)
         Label(newWindow,text ="Elevation").grid(row = 0, column = 2)
@@ -133,8 +151,15 @@ class gui:
             self.TailWaterF[i].grid(row=i+1,column=3)
             self.FlowL.append(Label(newWindow))
             self.FlowL[i].grid(row=i+1,column=j+5)
+        self.gate_rows = list(zip(
+                self.DateF,
+                self.TimeF,
+                self.ElevF,
+                self.TailWaterF,
+                *self.gates,
+            ))
         Label(newWindow,text="OutFlow").grid(row=0,column=j+5)
-#Weather
+#Weather is standard for all lakes
         Label(newWindow,text="Pool").grid(row=21,column=0)
         Label(newWindow,text="24 Hour").grid(row=22,column=0)
         Label(newWindow,text="Change").grid(row=23,column=0)
@@ -170,7 +195,7 @@ class gui:
         self.minTemp.grid(row=24,column=8)
         self.maxTemp.grid(row=24,column=9)
         self.tailTemp.grid(row=24,column=10)
-#Aniticipated
+#Aniticipated uses the same gate lookup as the Elevation and Gate section to populate both the lables and entry objects
         Label(newWindow,text="Anticipated next 06:00 Outlet Settings").grid(row=25,column=0,columnspan=3)
         r,c = 26,0
         for i in range(len( self.Gate_configuration[lkname])):
@@ -180,7 +205,7 @@ class gui:
         for j in range(len( self.Gate_configuration[lkname])):
             self.a_gates.append(Entry(newWindow))
             self.a_gates[j].grid(row=27,column=j)
-#River Stations
+#River Station labels and entry objects are populated from the River_Stations Dictionary
         self.r_station = []
         for i in range(len( self.River_Stations[lkname])):
             Label(newWindow,text= self.River_Stations[lkname][i]).grid(row=28+i,column=0,columnspan=2)
@@ -190,15 +215,28 @@ class gui:
         Label(newWindow,text='Remarks:').grid(row=34,column=0)
         self.remarks = Entry(newWindow,width=77)
         self.remarks.grid(row=34,column=1,columnspan=5)
-# Submit
+# Submit Button and information label
         submit = Button(newWindow,text="Submit",command = self.Submit)
         submit.grid(row=34,column=8)
+        self.infobox = Label(newWindow,font=("Arial", 10))
+        self.infobox.grid(row=32,column=8,rowspan=2,columnspan=3)
         self.Load()
+
     def Submit(self):
+        """Submit first runs the find_submit_errors function and displays the error if one is found.
+        If no errors it itterates through the entry objects to pruduce the output file.
+        The output file is then copied and date stamped for archiving
+        Finally the send.bat is called to transfer the files to the server."""
+        err = self.find_submit_errors()
+        if err:
+            mb.showwarning("Submission Halted Due to Error",err)
+            return False
+        self.infobox.configure(text="Submission Started")
+        self.root.update_idletasks()
         year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime()
-        Modtime = str(year)+pad(str(month),2,'0')+pad(str(day),2,'0')+pad(str(hour),2,'0')+pad(str(Min),2,'0')+pad(str(sec),2,'0')
+        Modtime = str(year)+pad(str(month),2,'0')+pad(str(day),2,'0')+pad(str(hour),2,'0')+pad(str(Min),2,'0')
         basin = GetBasin(self.lkname)
-        f = open('c:/temp/'+self.lkname+'pydlb.txt','w')
+        f = open('o:/ED/PUBLIC/DLB/OUTPUT/'+self.lkname+'pydlb.txt','w')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date +' 0000 MODTIME:' + Modtime + '\n')
         f.write('#Lake Levels and Gate Setting\n')
         for i in range(15):
@@ -237,7 +275,93 @@ class gui:
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 REMARKS :' + self.remarks.get() + '\n')
         f.flush()
         f.close()
+        os.system('cp o:\\ed\\public\\dlb\\output\\' + self.lkname+'pydlb.txt o:\\ed\\public\\dlb\\archive\\' +self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt')
+        self.infobox.configure(text="Starting Transfer to WM's Server")
+        self.root.update_idletasks()
+        os.system('o:\\ed\\public\\dlb\\database\\extract\\send.bat')
+        self.infobox.configure(text="")
+        self.root.update_idletasks()
+        mb.showinfo("DLB Submission",'Submission Complete')
+        return True
+
+    def find_submit_errors(self) -> str:
+        """Checks for data entry errors before DLB is processed.
+
+        Returns:
+            str: A string containing an error message for the first error discovered,
+                or a blank string if no errors are found.
+        """
+        check_functions = [
+            self.check_required_fields,
+            self.check_additional_gate_entries,
+            self.check_temperature_values,
+        ]
+        for check_function in check_functions:
+            check_error = check_function()
+            if check_error:
+                return check_error
+        return ''
+
+    def check_required_fields(self) -> str:
+        """Checks for entered values in every required field.
+
+        Returns:
+            str: A string containing an error message listing some or all of the
+                missing fields, or a blank string if no required fields are missing.
+        """
+        for row in self.gate_rows[:4]:  # 1200, 1800, 2400, and 0600
+            if not all(entry.get() for entry in row):
+                return f'Missing value(s) in gate table at {row[1].get()} on {row[0].get()}'
+        required_fields = [
+            ["24-Hour Pool Change", self.change],
+            ["24-Hour Precip", self.precip],
+            ["Snow on Ground", self.snow],
+            ["Snow Water Equivalent", self.swe],
+            ["Current Temperature", self.curTemp],
+            ["Min. Temperature", self.minTemp],
+            ["Max. Temperature", self.maxTemp],
+            ["Tailwater Temperature", self.tailTemp],
+        ]
+        for i, station in enumerate(self.River_Stations[self.lkname]):
+            required_fields.append([f'{station} Stage', self.r_station[i]])
+        for i, gate in enumerate(self.Gate_configuration[self.lkname]):
+            required_fields.append([f'Ant. {gate[0]}', self.a_gates[i]])
+        missing_fields = [x[0] for x in required_fields if x[1].get() == '']
+        if self.tkvar2.get() == 'Select Weather':
+            missing_fields.append('Present Weather')
+        if missing_fields:
+            return f'The following required fields are missing: {missing_fields}'
+        return ''
+
+    def check_additional_gate_entries(self) -> str:
+        """Checks that all additional gate entry rows have complete data.
+
+        Returns:
+            str: A string containing an error message indicating the gate entry row
+                containing incomplete data, or a blank string if no incomplete gate
+                entry rows are found.
+        """
+        for i, row in enumerate(self.gate_rows[4:]):
+            if any([x.get() for x in row]) and not all(x.get() for x in row):
+                return f'Incomplete data entered for gate entry row #{i + 5}'
+        return ''
+
+    def check_temperature_values(self) -> str:
+        """Checks that temperature values are entered correctly.
+
+        Returns:
+            str: A string containing an error message or an empty string if no
+                errors are found.
+        """
+        if float(self.maxTemp.get()) < float(self.minTemp.get()):
+            return 'Temp: Min greater than max'
+        if not float(self.minTemp.get()) <= float(self.curTemp.get()) <= float(self.maxTemp.get()):
+            return 'Temp: Current not between min and max'
+        return ''
+
     def Validate_time(self,event):
+        """The time is checked using a regular expression.  If the time is not valid an error is displayed.
+        If the time is valid the date for that row is set to the appropreate date"""
         tm = re.compile("([01]?[0-9]|2[0-3])[0-5][0-9]")
         if tm.match(event.widget.get()) or event.widget.get() == '':
             self.DateF[self.TimeF.index(event.widget)].delete(0,"end")
@@ -247,18 +371,23 @@ class gui:
                 self.DateF[self.TimeF.index(event.widget)].insert(0,yesterday)
             else:
                 self.DateF[self.TimeF.index(event.widget)].insert(0,self.Date)
-            self.infobox.configure(text="")
+            mb.showwarning("","")
         else:
-            self.infobox.configure(text="Time is not in hhmm format")
+            mb.showwarning("","Time is not in hhmm format")
             self.recheck = True
             event.widget.focus_set()
+
     def Validate(self,event):
+        """Values for entry objects are checked against the criteria for their given bounds.
+        First the entry object in question is checked against the arrays of objects to establish what type of entry ojbect it is.
+        Then the min and max values are set accordingly
+        If the value is outside of the bound an error is displayed.
+        Finally if the value cannot be evaluated because it isn't the right datatype an error message indicating the value is not a number"""
         try:
             flow_calc = False
             index = -1
             gn = 0
             if not (event.widget.get() == '') and not self.recheck:
-                self.infobox.configure(text="")
                 if event.widget in self.ElevF:
                     min_val, max_val = self.Elev_Limits[self.lkname]
                     index = self.ElevF.index(event.widget)
@@ -275,8 +404,8 @@ class gui:
                             try:
                                 int(event.widget.get())
                             except:
-                                self.infobox.configure(text="Must be an integer")
                                 self.recheck = True
+                                mb.showwarning("Entry Not Valid","Must be an integer")
                                 event.widget.focus_set()
                                 return
                 if event.widget in [self.curTemp,self.minTemp,self.maxTemp]:
@@ -285,13 +414,13 @@ class gui:
                     min_val, max_val = 0,50
                 val = float(event.widget.get())
                 if val < min_val:
-                    self.infobox.configure(text="Value is too low")
                     self.recheck = True
+                    mb.showwarning("Entry Not Valid","Value is too low")
                     event.widget.focus_set()
                     return
                 if val > max_val:
-                    self.infobox.configure(text="Value is to high")
                     self.recheck = True
+                    mb.showwarning("Entry Not Valid","Value is to high")
                     event.widget.focus_set()
                     return
             else:
@@ -311,11 +440,13 @@ class gui:
                 except:
                     self.FlowL[index].configure(text='')
         except:
-            self.infobox.configure(text="Must be a number.")
+            mb.showwarning("Entry Not Valid","Must be a number.")
             event.widget.focus_set()
     def Load(self,*args):
+        """Checks for the presence of a date stamped file matching the lake and date.
+        Parses the file and populates the entry objects"""
         self.Date = self.TkDate.get()
-        filename = 'c:/temp/'+self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt'
+        filename = 'o:\\ed\\public\\dlb\\archive\\'+self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt'
         if exists(filename):
             self.Clear()
             f = open(filename,'r')
@@ -325,9 +456,9 @@ class gui:
             f.close()
             maxRow,a,r=0,0,0
             for line in lines:
-                if line[0] != '#':
-                    meta,data = line.split(':')
-                    meta = meta.split(' ')
+                if line[0] != '#':  #Only Process data lines not comments
+                    meta,data = line.split(':')  #Seperate metadata from data
+                    meta = meta.split(' ')  #Break meta data into array
                     if meta[4] == 'MODTIME':
                         pass
                     elif meta[4] == 'ELEV':
@@ -359,15 +490,15 @@ class gui:
                         self.precip.insert(0,data[:-1])
                     elif meta[4] == 'SNOW':
                         self.snow.insert(0,data[:-1])
-                    elif meta[4] == 'SNOWATER':
+                    elif meta[4] == 'SNOWWATER':
                         self.swe.insert(0,data[:-1])
                     elif meta[4] == 'PRESWEATHR':
                         self.tkvar2.set(data[:-1])
                     elif meta[4] == 'AIR':
                         self.curTemp.insert(0,data[:-1])
-                    elif meta[4] == 'MAX24':
+                    elif meta[4] == 'MAX':
                         self.maxTemp.insert(0,data[:-1])
-                    elif meta[4] == 'MIN24':
+                    elif meta[4] == 'MIN':
                         self.minTemp.insert(0,data[:-1])
                     elif meta[4] == 'WATERTEMP':
                         self.tailTemp.insert(0,data[:-1])
@@ -387,6 +518,7 @@ class gui:
                 self.TimeF[i].insert(0,times[i])
                                             
     def Clear(self):
+        """Clears all of the values in the entry objects"""
         for i in range(20):
             self.DateF[i].delete(0,"end")
             self.TimeF[i].delete(0,"end")
@@ -412,4 +544,3 @@ class gui:
         self.remarks.delete(0,"end")
 if __name__ == "__main__":
         g = gui()
-
