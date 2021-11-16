@@ -27,6 +27,8 @@ def Graph(Xs,Ys,w,h,win):
         canvas.create_line(wx,wy,tx,ty,fill="red",width=2)
     return canvas
 def getData(lkname,loc,Data,parameter):
+    self.launch.configure(text="Getting " + loc + " Data from USGS")
+    self.root.update_idletasks()
     code = {'ELEV':'62614','Stage':'00065'}
     usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277450','CHL':'03340870','CMR':'03358900',
            'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
@@ -39,7 +41,7 @@ def getData(lkname,loc,Data,parameter):
            'Fincastle':'03340800','Ferndale':'03340900','Coxville':'03341300',
            'Reelsville':'03357500','Bowling Green IN':'03360000','Spencer':'03357000',
            'Salyersville':'03248300','Farmers':'03249505','Moorehead (TR. C)':'03250000',
-           'Greensburg':'03306500','Columbia':'03307000',
+           'Greenburg':'03306500','Columbia':'03307000',
            'Shoals':'03282060','Petersburg':'03373980',
            'Munfordville':'03308500','Brownsville':'03311505',
            'Jasper':'03375500',
@@ -113,11 +115,56 @@ class gui:
         lakesort.sort()
         popupMenu1 = OptionMenu(canvas, self.tkvar, *lakesort)
         popupMenu1.grid(row=0,column = 0, rowspan=2, columnspan=2)
-        l = Label(canvas,text="                                 ")
-        l.grid(row=3,column=0,rowspan=2,columnspan=2)
+        self.launch = Label(canvas,text="                                 ")
+        self.launch.grid(row=3,column=0,rowspan=2,columnspan=2)
         Launch = Button(canvas,text="Load Entry Sheet",command = self.LoadDLB)
         Launch.grid(row=5, column =0, rowspan=2, columnspan=2)
         self.root.mainloop()
+    def getData(self,lkname,loc,Data,parameter):
+        self.launch.configure(text="Getting " + loc + " Data from USGS")
+        self.root.update_idletasks()
+        code = {'ELEV':'62614','Stage':'00065'}
+        usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277450','CHL':'03340870','CMR':'03358900',
+               'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
+               'Hyden':'03280600','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
+               'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
+               'Alpine':'03275000','Brookville':'03276000',
+               'Eagle City':'03267900','Springfield (MAD R)':'03269500',
+               'Milford':'03245500','Spring Valley':'03242050',
+               'Hazard':'03277500',
+               'Fincastle':'03340800','Ferndale':'03340900','Coxville':'03341300',
+               'Reelsville':'03357500','Bowling Green IN':'03360000','Spencer':'03357000',
+               'Salyersville':'03248300','Farmers':'03249505','Moorehead (TR. C)':'03250000',
+               'Greenburg':'03306500','Columbia':'03307000',
+               'Shoals':'03282060','Petersburg':'03373980',
+               'Munfordville':'03308500','Brownsville':'03311505',
+               'Jasper':'03375500',
+               'Dundee':'03319000',
+               'Brashears Creek':'03295890',
+               'Reading':'03255500','Carthage':'03259000',
+               'Perintown':'03247500'}
+        if loc == 'Bowling Green':
+            if lkname == 'BRR':
+                station = loc + ' KY'
+            elif lkname == 'CMR':
+                station = loc + ' IN'
+        else:
+            station = loc
+        url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code[parameter]+'=on&format=rdb&site_no='+usgs[station]+'&period=4'
+        Xs = []
+        Ys = []
+        Data[loc] = {}
+        req = urllib.request.Request(url)
+        response = urllib.request.urlopen(req)
+        html = response.read()
+        html = html.decode('utf8')
+        for line in html.split('\n'):
+            if line.split('\t')[0] == 'USGS':
+                timestamp = time.mktime(time.strptime(line.split('\t')[2],'%Y-%m-%d %H:%M'))
+                Xs.append(timestamp)
+                Ys.append(float(line.split('\t')[4]))
+                Data[loc][line.split('\t')[2]] = float(line.split('\t')[4])
+        return Xs,Ys,Data
     def LoadDLB(self):
         self.Load_DLB_Interface(self.Lakes[self.tkvar.get()])
          
@@ -162,7 +209,24 @@ class gui:
                               'TVL':['Brashears Creek'],
                               'WFR':['Reading','Carthage'],
                               'WHL':['Perintown']}
+        self.lkname = lkname
         newWindow = Toplevel(self.root)
+        self.Data = {}
+        try:
+            Xs,Ys,self.Data = self.getData(lkname,lkname,self.Data,'ELEV')
+            g = Graph(Xs,Ys,200,200,newWindow)
+            g.grid(row=37,column=0,columnspan=2)
+        except:
+            pass
+        for i in range(len(self.River_Stations[lkname])):
+            try:
+                station = self.River_Stations[lkname][i]
+                Label(newWindow,text=station).grid(row=36,column=2*i+2,columnspan=2)
+                Xs,Ys,self.Data = self.getData(self.lkname,station,self.Data,'Stage')
+                g = Graph(Xs,Ys,200,200,newWindow)
+                g.grid(row=37,column=2*i+2,columnspan=2)
+            except:
+                pass
         self.recheck = False
         self.lkname = lkname
         self.flow = ratings.GateRatingSet(self.lkname)
@@ -206,14 +270,8 @@ class gui:
             self.TailWaterF[i].bind('<FocusOut>',self.Validate)
             for j in range(len( self.Gate_configuration[lkname])):
                 self.gates[j].append(Entry(newWindow))
-                self.gates[j][i].grid(row=i+1,column=j+4)
                 self.gates[j][i].bind('<FocusOut>',self.Validate)
-            self.DateF[i].grid(row=i+1,column=0)
-            self.TimeF[i].grid(row=i+1,column=1)
-            self.ElevF[i].grid(row=i+1,column=2)
-            self.TailWaterF[i].grid(row=i+1,column=3)
             self.FlowL.append(Label(newWindow))
-            self.FlowL[i].grid(row=i+1,column=j+5)
         self.gate_rows = list(zip(
                 self.DateF,
                 self.TimeF,
@@ -222,6 +280,10 @@ class gui:
                 *self.gates,
             ))
         Label(newWindow,text="OutFlow").grid(row=0,column=j+5)
+        self.numrows = 0
+        Button(newWindow,text="Add Gate Change",command = self.AddGateRow).grid(row=6,column=12)
+        for i in range(4):
+            self.AddGateRow()
 #Weather is standard for all lakes
         Label(newWindow,text="Pool").grid(row=21,column=0)
         Label(newWindow,text="24 Hour").grid(row=22,column=0)
@@ -248,10 +310,10 @@ class gui:
         self.weather = OptionMenu(newWindow, self.tkvar2, *weather_conditions)
         self.weather.grid(row=24,column=5,columnspan=2)
         Label(newWindow,text="Temperature").grid(row=21,column=7,columnspan=4)
-        Label(newWindow,text="Current").grid(row=22,column=7)
+        Label(newWindow,text="Current").grid(row=23,column=7)
         Label(newWindow,text="Min").grid(row=23,column=9)
         Label(newWindow,text="Max").grid(row=23,column=8)
-        Label(newWindow,text="Tailwater").grid(row=23,column=10)
+        Label(newWindow,text="Tailwater").grid(row=22,column=10)
         Label(newWindow,text="Temp Degrees C").grid(row=23,column=10)
         self.curTemp,self.minTemp,self.maxTemp,self.tailTemp = Entry(newWindow),Entry(newWindow),Entry(newWindow),Entry(newWindow)
         self.curTemp.grid(row=24,column=7)
@@ -284,25 +346,22 @@ class gui:
         self.infobox = Label(newWindow,font=("Arial", 10))
         self.infobox.grid(row=32,column=8,rowspan=2,columnspan=3)
         Label(newWindow,text=lkname).grid(row=36,column=0,columnspan=2)
-        self.Data = {}
-        try:
-            Xs,Ys,self.Data = getData(lkname,lkname,self.Data,'ELEV')
-            g = Graph(Xs,Ys,200,200,newWindow)
-            g.grid(row=37,column=0,columnspan=2)
-        except:
-            pass
-        for i in range(len(self.River_Stations[lkname])):
-            try:
-                station = self.River_Stations[lkname][i]
-                Xs,Ys,self.Data = getData(self.lkname,station,self.Data,'Stage')
-                Label(newWindow,text=station).grid(row=36,column=2*i+2,columnspan=2)
-                g = Graph(Xs,Ys,200,200,newWindow)
-                g.grid(row=37,column=2*i+2,columnspan=2)
-            except:
-                pass
         self.Load()
+        self.launch.configure(text="")
+        self.root.update_idletasks()
         self.ElevF[0].focus_set()
-
+    def AddGateRow(self):
+        if self.numrows < 20:
+            i = self.numrows
+            self.DateF[i].grid(row=i+1,column=0)
+            self.TimeF[i].grid(row=i+1,column=1)
+            self.ElevF[i].grid(row=i+1,column=2)
+            self.TailWaterF[i].grid(row=i+1,column=3)
+            for j in range(len( self.Gate_configuration[self.lkname])):
+                self.gates[j][i].grid(row=i+1,column=j+4)
+            self.FlowL[i].grid(row=i+1,column=j+5)
+            self.TimeF[i].focus_set()
+            self.numrows += 1
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
         If no errors it itterates through the entry objects to pruduce the output file.
@@ -612,9 +671,10 @@ class gui:
                 self.TimeF[i].insert(0,times[i])
                 if times[i] == '2400':
                     h,m = '00','00'
+                    mon,day,year = self.Date.split('/')
                 else:
                     h,m = int(int(times[i])/100), int(times[i])%100
-                mon,day,year = dates[i].split('/')
+                    mon,day,year = dates[i].split('/')
                 self.ElevF[i].delete(0,"end")
                 try:
                     self.ElevF[i].insert(0,self.Data[self.lkname][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' '+pad(str(h),2,'0')+':'+pad(str(m),2,'0')])
