@@ -7,6 +7,68 @@ import os
 from os.path import exists
 import re
 from tkinter import messagebox as mb
+import urllib.request
+import math
+
+def Graph(Xs,Ys,w,h,win):
+    r = 0
+    canvas = Canvas(win, width=w, height=h, bg= 'white')
+    scale_x = w/(max(Xs)-min(Xs))
+    scale_y = h/(max(Ys)-min(Ys))
+    canvas.create_text(1,h-(min(Ys)-min(Ys))*scale_y,text=str(min(Ys)),anchor=SW)
+    canvas.create_line(0,h-(min(Ys)-min(Ys))*scale_y,w,h-(min(Ys)-min(Ys))*scale_y,fill='black',width=1)
+    canvas.create_text(1,h-(max(Ys)-min(Ys))*scale_y,text=str(max(Ys)),anchor=NW)
+    canvas.create_line(0,h-(max(Ys)-min(Ys))*scale_y,w,h-(max(Ys)-min(Ys))*scale_y,fill='black',width=1)
+    for i in range(1,len(Xs)):
+        wx = (Xs[i-1]-min(Xs))*scale_x
+        tx = (Xs[i]-min(Xs))*scale_x
+        wy = h-(Ys[i-1]-min(Ys))*scale_y
+        ty = h-(Ys[i]-min(Ys))*scale_y
+        canvas.create_line(wx,wy,tx,ty,fill="red",width=2)
+    return canvas
+def getData(lkname,loc,Data,parameter):
+    code = {'ELEV':'62614','Stage':'00065'}
+    usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277450','CHL':'03340870','CMR':'03358900',
+           'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
+           'Hyden':'03280600','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
+           'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
+           'Alpine':'03275000','Brookville':'03276000',
+           'Eagle City':'03267900','Springfield (MAD R)':'03269500',
+           'Milford':'03245500','Spring Valley':'03242050',
+           'Hazard':'03277500',
+           'Fincastle':'03340800','Ferndale':'03340900','Coxville':'03341300',
+           'Reelsville':'03357500','Bowling Green IN':'03360000','Spencer':'03357000',
+           'Salyersville':'03248300','Farmers':'03249505','Moorehead (TR. C)':'03250000',
+           'Greensburg':'03306500','Columbia':'03307000',
+           'Shoals':'03282060','Petersburg':'03373980',
+           'Munfordville':'03308500','Brownsville':'03311505',
+           'Jasper':'03375500',
+           'Dundee':'03319000',
+           'Brashears Creek':'03295890',
+           'Reading':'03255500','Carthage':'03259000',
+           'Perintown':'03247500'}
+    if loc == 'Bowling Green':
+        if lkname == 'BRR':
+            station = loc + ' KY'
+        elif lkname == 'CMR':
+            station = loc + ' IN'
+    else:
+        station = loc
+    url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code[parameter]+'=on&format=rdb&site_no='+usgs[station]+'&period=4'
+    Xs = []
+    Ys = []
+    Data[loc] = {}
+    req = urllib.request.Request(url)
+    response = urllib.request.urlopen(req)
+    html = response.read()
+    html = html.decode('utf8')
+    for line in html.split('\n'):
+        if line.split('\t')[0] == 'USGS':
+            timestamp = time.mktime(time.strptime(line.split('\t')[2],'%Y-%m-%d %H:%M'))
+            Xs.append(timestamp)
+            Ys.append(float(line.split('\t')[4]))
+            Data[loc][line.split('\t')[2]] = float(line.split('\t')[4])
+    return Xs,Ys,Data
 def GetBasin(lake):
     """Checks the basin_lakes dictionary for the lake code
 
@@ -65,6 +127,7 @@ class gui:
                              'CRR':[719,788],'GRR':[663,734],'MNR':[533,574],'NRR':[487,581],'PRR':[527,564],'RRR':[465,554],'TVL':[540,623],'WFR':[670,735.5],'WHL':[724,819]}
         #Upper Elevation is top of Dam
         #Lower Elevation is winter pool -5
+
         self.Gate_configuration = {'BHR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1)],
                               'BRR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',2),('Bypass 2 Level','L2',2)],
                               'BVR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',6),('Bypass 2 Level','L2',6)],
@@ -186,14 +249,14 @@ class gui:
         self.weather.grid(row=24,column=5,columnspan=2)
         Label(newWindow,text="Temperature").grid(row=21,column=7,columnspan=4)
         Label(newWindow,text="Current").grid(row=22,column=7)
-        Label(newWindow,text="Min").grid(row=23,column=8)
-        Label(newWindow,text="Max").grid(row=23,column=9)
+        Label(newWindow,text="Min").grid(row=23,column=9)
+        Label(newWindow,text="Max").grid(row=23,column=8)
         Label(newWindow,text="Tailwater").grid(row=23,column=10)
         Label(newWindow,text="Temp Degrees C").grid(row=23,column=10)
         self.curTemp,self.minTemp,self.maxTemp,self.tailTemp = Entry(newWindow),Entry(newWindow),Entry(newWindow),Entry(newWindow)
         self.curTemp.grid(row=24,column=7)
-        self.minTemp.grid(row=24,column=8)
-        self.maxTemp.grid(row=24,column=9)
+        self.minTemp.grid(row=24,column=9)
+        self.maxTemp.grid(row=24,column=8)
         self.tailTemp.grid(row=24,column=10)
 #Aniticipated uses the same gate lookup as the Elevation and Gate section to populate both the lables and entry objects
         Label(newWindow,text="Anticipated next 06:00 Outlet Settings").grid(row=25,column=0,columnspan=3)
@@ -220,7 +283,25 @@ class gui:
         submit.grid(row=34,column=8)
         self.infobox = Label(newWindow,font=("Arial", 10))
         self.infobox.grid(row=32,column=8,rowspan=2,columnspan=3)
+        Label(newWindow,text=lkname).grid(row=36,column=0,columnspan=2)
+        self.Data = {}
+        try:
+            Xs,Ys,self.Data = getData(lkname,lkname,self.Data,'ELEV')
+            g = Graph(Xs,Ys,200,200,newWindow)
+            g.grid(row=37,column=0,columnspan=2)
+        except:
+            pass
+        for i in range(len(self.River_Stations[lkname])):
+            try:
+                station = self.River_Stations[lkname][i]
+                Xs,Ys,self.Data = getData(self.lkname,station,self.Data,'Stage')
+                Label(newWindow,text=station).grid(row=36,column=2*i+2,columnspan=2)
+                g = Graph(Xs,Ys,200,200,newWindow)
+                g.grid(row=37,column=2*i+2,columnspan=2)
+            except:
+                pass
         self.Load()
+        self.ElevF[0].focus_set()
 
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
@@ -363,19 +444,33 @@ class gui:
         """The time is checked using a regular expression.  If the time is not valid an error is displayed.
         If the time is valid the date for that row is set to the appropreate date"""
         tm = re.compile("([01]?[0-9]|2[0-3])[0-5][0-9]")
-        if tm.match(event.widget.get()) or event.widget.get() == '':
-            self.DateF[self.TimeF.index(event.widget)].delete(0,"end")
-            if int(event.widget.get()) > 600:
-                year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-(self.Entry_dates.index(self.Date)+1)*60*60*24)
-                yesterday = str(month)+'/'+str(day)+'/'+str(year)
-                self.DateF[self.TimeF.index(event.widget)].insert(0,yesterday)
+        if event.widget.get() != "":
+            if tm.match(event.widget.get()):
+                self.DateF[self.TimeF.index(event.widget)].delete(0,"end")
+                if int(event.widget.get()) > 600:
+                    year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-(self.Entry_dates.index(self.Date)+1)*60*60*24)
+                    yesterday = str(month)+'/'+str(day)+'/'+str(year)
+                    self.DateF[self.TimeF.index(event.widget)].insert(0,yesterday)
+                else:
+                    self.DateF[self.TimeF.index(event.widget)].insert(0,self.Date)
+                for i in range(len(self.TimeF)):
+                    if self.TimeF[i] != event.widget and pad(event.widget.get(),4,'0') == pad(self.TimeF[i].get(),4,'0'):
+                        mb.showwarning("","Times must be unique")
+                        event.widget.focus_set()
+                        return
+                if event.widget.get() == '2400':
+                    mon,day,year = self.Date.split('/')
+                    h,m = '00','00'
+                else:
+                    mon,day,year = self.DateF[self.TimeF.index(event.widget)].get().split('/')
+                    h,m = int(int(event.widget.get())/100), int(event.widget.get())%100
+                self.ElevF[self.TimeF.index(event.widget)].delete(0,"end")
+                self.ElevF[self.TimeF.index(event.widget)].insert(0,self.Data[self.lkname][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' '+pad(str(h),2,'0')+':'+pad(str(m),2,'0')])
             else:
-                self.DateF[self.TimeF.index(event.widget)].insert(0,self.Date)
-            mb.showwarning("","")
+                mb.showwarning("","Time is not in hhmm format")
+                event.widget.focus_set()
         else:
-            mb.showwarning("","Time is not in hhmm format")
-            self.recheck = True
-            event.widget.focus_set()
+            return
 
     def Validate(self,event):
         """Values for entry objects are checked against the criteria for their given bounds.
@@ -447,8 +542,8 @@ class gui:
         Parses the file and populates the entry objects"""
         self.Date = self.TkDate.get()
         filename = 'o:\\ed\\public\\dlb\\archive\\'+self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt'
+        self.Clear()
         if exists(filename):
-            self.Clear()
             f = open(filename,'r')
             Times = []
             Gates = []
@@ -508,15 +603,30 @@ class gui:
                         self.r_station[r].insert(0,data[:-1])
                         r+=1
         else:
-            self.Clear()
             year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-(self.Entry_dates.index(self.Date)+1)*60*60*24)
             yesterday = str(month)+'/'+str(day)+'/'+str(year)
             dates = [yesterday]*3 +[self.Date]+['']*16
             times = ['1200','1800','2400','0600'] + ['']*16
-            for i in range(20):
+            for i in range(4):
                 self.DateF[i].insert(0,dates[i])
                 self.TimeF[i].insert(0,times[i])
-                                            
+                if times[i] == '2400':
+                    h,m = '00','00'
+                else:
+                    h,m = int(int(times[i])/100), int(times[i])%100
+                mon,day,year = dates[i].split('/')
+                self.ElevF[i].delete(0,"end")
+                try:
+                    self.ElevF[i].insert(0,self.Data[self.lkname][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' '+pad(str(h),2,'0')+':'+pad(str(m),2,'0')])
+                except:
+                    pass
+            for i in range(len( self.River_Stations[self.lkname])):
+                try:
+                    mon,day,year = self.Date.split('/')
+                    self.r_station[i].insert(0,self.Data[self.River_Stations[self.lkname][i]][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'])
+                except:
+                    self.r_station[i].insert(0,'0')
+            self.ElevF[0].focus_force()
     def Clear(self):
         """Clears all of the values in the entry objects"""
         for i in range(20):
