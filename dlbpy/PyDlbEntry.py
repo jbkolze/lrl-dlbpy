@@ -26,51 +26,6 @@ def Graph(Xs,Ys,w,h,win):
         ty = h-(Ys[i]-min(Ys))*scale_y
         canvas.create_line(wx,wy,tx,ty,fill="red",width=2)
     return canvas
-def getData(lkname,loc,Data,parameter):
-    self.launch.configure(text="Getting " + loc + " Data from USGS")
-    self.root.update_idletasks()
-    code = {'ELEV':'62614','Stage':'00065'}
-    usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277450','CHL':'03340870','CMR':'03358900',
-           'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
-           'Hyden':'03280600','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
-           'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
-           'Alpine':'03275000','Brookville':'03276000',
-           'Eagle City':'03267900','Springfield (MAD R)':'03269500',
-           'Milford':'03245500','Spring Valley':'03242050',
-           'Hazard':'03277500',
-           'Fincastle':'03340800','Ferndale':'03340900','Coxville':'03341300',
-           'Reelsville':'03357500','Bowling Green IN':'03360000','Spencer':'03357000',
-           'Salyersville':'03248300','Farmers':'03249505','Moorehead (TR. C)':'03250000',
-           'Greenburg':'03306500','Columbia':'03307000',
-           'Shoals':'03282060','Petersburg':'03373980',
-           'Munfordville':'03308500','Brownsville':'03311505',
-           'Jasper':'03375500',
-           'Dundee':'03319000',
-           'Brashears Creek':'03295890',
-           'Reading':'03255500','Carthage':'03259000',
-           'Perintown':'03247500'}
-    if loc == 'Bowling Green':
-        if lkname == 'BRR':
-            station = loc + ' KY'
-        elif lkname == 'CMR':
-            station = loc + ' IN'
-    else:
-        station = loc
-    url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code[parameter]+'=on&format=rdb&site_no='+usgs[station]+'&period=4'
-    Xs = []
-    Ys = []
-    Data[loc] = {}
-    req = urllib.request.Request(url)
-    response = urllib.request.urlopen(req)
-    html = response.read()
-    html = html.decode('utf8')
-    for line in html.split('\n'):
-        if line.split('\t')[0] == 'USGS':
-            timestamp = time.mktime(time.strptime(line.split('\t')[2],'%Y-%m-%d %H:%M'))
-            Xs.append(timestamp)
-            Ys.append(float(line.split('\t')[4]))
-            Data[loc][line.split('\t')[2]] = float(line.split('\t')[4])
-    return Xs,Ys,Data
 def GetBasin(lake):
     """Checks the basin_lakes dictionary for the lake code
 
@@ -121,12 +76,12 @@ class gui:
         Launch.grid(row=5, column =0, rowspan=2, columnspan=2)
         self.root.mainloop()
     def getData(self,lkname,loc,Data,parameter):
-        self.launch.configure(text="Getting " + loc + " Data from USGS")
+        self.infobox.configure(text="Getting " + loc + " Data from USGS")
         self.root.update_idletasks()
         code = {'ELEV':'62614','Stage':'00065'}
         usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277450','CHL':'03340870','CMR':'03358900',
                'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
-               'Hyden':'03280600','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
+               'Hyden':'03280612','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
                'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
                'Alpine':'03275000','Brookville':'03276000',
                'Eagle City':'03267900','Springfield (MAD R)':'03269500',
@@ -211,22 +166,6 @@ class gui:
                               'WHL':['Perintown']}
         self.lkname = lkname
         newWindow = Toplevel(self.root)
-        self.Data = {}
-        try:
-            Xs,Ys,self.Data = self.getData(lkname,lkname,self.Data,'ELEV')
-            g = Graph(Xs,Ys,200,200,newWindow)
-            g.grid(row=37,column=0,columnspan=2)
-        except:
-            pass
-        for i in range(len(self.River_Stations[lkname])):
-            try:
-                station = self.River_Stations[lkname][i]
-                Label(newWindow,text=station).grid(row=36,column=2*i+2,columnspan=2)
-                Xs,Ys,self.Data = self.getData(self.lkname,station,self.Data,'Stage')
-                g = Graph(Xs,Ys,200,200,newWindow)
-                g.grid(row=37,column=2*i+2,columnspan=2)
-            except:
-                pass
         self.recheck = False
         self.lkname = lkname
         self.flow = ratings.GateRatingSet(self.lkname)
@@ -346,21 +285,37 @@ class gui:
         self.infobox = Label(newWindow,font=("Arial", 10))
         self.infobox.grid(row=32,column=8,rowspan=2,columnspan=3)
         Label(newWindow,text=lkname).grid(row=36,column=0,columnspan=2)
-        self.Load()
-        self.launch.configure(text="")
+        self.Data = {}
+        try:
+            Xs,Ys,self.Data = self.getData(lkname,lkname,self.Data,'ELEV')
+            g = Graph(Xs,Ys,200,200,newWindow)
+            g.grid(row=37,column=0,columnspan=2)
+        except:
+            pass
+        for i in range(len(self.River_Stations[lkname])):
+            try:
+                station = self.River_Stations[lkname][i]
+                Label(newWindow,text=station).grid(row=36,column=2*i+2,columnspan=2)
+                Xs,Ys,self.Data = self.getData(self.lkname,station,self.Data,'Stage')
+                g = Graph(Xs,Ys,200,200,newWindow)
+                g.grid(row=37,column=2*i+2,columnspan=2)
+            except:
+                pass
+        self.infobox.configure(text="")
         self.root.update_idletasks()
+        self.Load()
         self.ElevF[0].focus_set()
     def AddGateRow(self):
         if self.numrows < 20:
-            i = self.numrows
-            self.DateF[i].grid(row=i+1,column=0)
-            self.TimeF[i].grid(row=i+1,column=1)
-            self.ElevF[i].grid(row=i+1,column=2)
-            self.TailWaterF[i].grid(row=i+1,column=3)
+            self.DateF[self.numrows].grid(row=self.numrows+1,column=0)
+            self.TimeF[self.numrows].grid(row=self.numrows+1,column=1)
+            self.ElevF[self.numrows].grid(row=self.numrows+1,column=2)
+            self.TailWaterF[self.numrows].grid(row=self.numrows+1,column=3)
             for j in range(len( self.Gate_configuration[self.lkname])):
-                self.gates[j][i].grid(row=i+1,column=j+4)
-            self.FlowL[i].grid(row=i+1,column=j+5)
-            self.TimeF[i].focus_set()
+                self.gates[j][self.numrows].grid(row=self.numrows+1,column=j+4)
+            self.FlowL[self.numrows].grid(row=self.numrows+1,column=j+5)
+            if self.numrows >= 4:
+                self.TimeF[self.numrows].focus_set()
             self.numrows += 1
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
@@ -569,30 +524,33 @@ class gui:
                 val = float(event.widget.get())
                 if val < min_val:
                     self.recheck = True
-                    mb.showwarning("Entry Not Valid","Value is too low")
-                    event.widget.focus_set()
+                    mb.showwarning("Entry Not Valid","Value is below normal range.\nPlease Check value.")
                     return
                 if val > max_val:
                     self.recheck = True
-                    mb.showwarning("Entry Not Valid","Value is to high")
-                    event.widget.focus_set()
+                    mb.showwarning("Entry Not Valid","Value is above normal range.\nPlease Check value.")
                     return
             else:
                 self.recheck = False
+            flow = True
             if index > -1:
-                try:
-                    gates = {}
-                    for i in range(len(self.Gate_configuration[self.lkname])):
+                gates = {}
+                for i in range(len(self.Gate_configuration[self.lkname])):
+                    if self.gates[i][index].get() == "":
+                        flow = False
+                    else:
                         if self.Gate_configuration[self.lkname][i][1] in ['L1','L2']:
                             gates[self.Gate_configuration[self.lkname][i][1]] = int(self.gates[i][index].get())
                         else:
                             gates[self.Gate_configuration[self.lkname][i][1]] = float(self.gates[i][index].get())
-                    for key in ['MG1','MG2','BP1','BP2','L1','L2']:
-                        if key not in gates.keys():
-                            gates[key] = None
-                    self.FlowL[index].configure(text=str(self.flow.get_total_flow(float(self.ElevF[index].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
-                except:
-                    self.FlowL[index].configure(text='')
+                for key in ['MG1','MG2','BP1','BP2','L1','L2']:
+                    if key not in gates.keys():
+                        gates[key] = 0
+                if flow:
+                    try:
+                        self.FlowL[index].configure(text=str(self.flow.get_total_flow(float(self.ElevF[index].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
+                    except:
+                        self.FlowL[index].configure(text="Flow Computation Failed")
         except:
             mb.showwarning("Entry Not Valid","Must be a number.")
             event.widget.focus_set()
@@ -675,11 +633,15 @@ class gui:
                 else:
                     h,m = int(int(times[i])/100), int(times[i])%100
                     mon,day,year = dates[i].split('/')
-                self.ElevF[i].delete(0,"end")
                 try:
                     self.ElevF[i].insert(0,self.Data[self.lkname][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' '+pad(str(h),2,'0')+':'+pad(str(m),2,'0')])
                 except:
                     pass
+            mon2,day2,year2 = dates[0].split('/')
+            try:
+                self.change.insert(0,str(round(self.Data[self.lkname][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'] - self.Data[self.lkname][year2+'-'+pad(mon2,2,'0')+'-'+pad(day2,2,'0') + ' 06:00'],2)))
+            except:
+                pass
             for i in range(len( self.River_Stations[self.lkname])):
                 try:
                     mon,day,year = self.Date.split('/')
