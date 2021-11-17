@@ -202,6 +202,11 @@ def get_interp_list(lists: List[List[float]], index: float):
     upper_index = lower_index + 1
     lower_list = lists[lower_index]
     upper_list = lists[upper_index]
+    
+    # Adjust ratings in which the zero setting only contains min and max elevations
+    if len(lower_list) == 2 and not any(lower_list):
+        lower_list = [0.0] * len(upper_list)
+
     weight = index % 1
     interp_list = []
     for a, b in zip(lower_list, upper_list):
