@@ -51,6 +51,7 @@ def Interpolate(Data,datestamp):
         else:
             return ''
 def Graph(Data,w,h,win):
+    #Not Currently in use
     Xs = []
     Ys = []
     keys = list(Data.keys())
@@ -79,6 +80,7 @@ def Graph(Data,w,h,win):
     for i in range(len(ticks)):
         canvas.create_line((ticks[i]-min(Xs))*scale_x,0,(ticks[i]-min(Xs))*scale_x,h,width=1,fill='grey')
     return canvas
+
 def GetBasin(lake):
     """Checks the basin_lakes dictionary for the lake code
 
@@ -173,7 +175,7 @@ class gui:
                               'WFR':['Reading','Carthage'],
                               'WHL':['Perintown']}
         usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277450','CHL':'03340870','CMR':'03358900',
-               'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
+               'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','RRR':'03318005','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
                'Hyden':'03280612','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
                'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
                'Alpine':'03275000','Brookville':'03276000',
