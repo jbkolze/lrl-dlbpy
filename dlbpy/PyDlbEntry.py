@@ -13,6 +13,7 @@ from PIL import Image, ImageGrab
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.dates import DateFormatter, DayLocator
+from matplotlib.ticker import FormatStrFormatter
 import seaborn as sns
 import pandas as pd
 
@@ -31,6 +32,7 @@ def build_plot(parent, data, title):
     plt.title(title)
     ax.xaxis.set_major_locator(DayLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%b %d'))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
     canvas = FigureCanvasTkAgg(f, master=parent)
     return canvas
 
