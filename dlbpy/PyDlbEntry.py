@@ -1,6 +1,6 @@
 from tkinter import *
 import time
-import datetime
+from datetime import datetime
 import calendar
 import ratings
 import os
@@ -9,8 +9,59 @@ import re
 from tkinter import messagebox as mb
 import urllib.request
 import math
+from PIL import Image, ImageGrab
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.dates import DateFormatter, DayLocator
+import seaborn as sns
+import pandas as pd
 
-def Graph(Xs,Ys,w,h,win):
+pd.plotting.register_matplotlib_converters()
+
+def build_plot(parent, data, title):
+    sns.set()
+    sns.set_context("paper")
+    sns.set_style("whitegrid")
+    f, ax = plt.subplots(1, 1, figsize=(2.5, 2.5), dpi=100, constrained_layout=True)
+    times = [datetime.strptime(x, '%Y-%m-%d %H:%M') for x in list(data.keys())]
+    values = list(data.values())
+    sns.lineplot(times, values, ax=ax)
+    sns.despine(f, ax)
+    plt.xticks(rotation=90)
+    plt.title(title)
+    ax.xaxis.set_major_locator(DayLocator())
+    ax.xaxis.set_major_formatter(DateFormatter('%b %d'))
+    canvas = FigureCanvasTkAgg(f, master=parent)
+    return canvas
+
+def Interpolate(Data,datestamp):
+    try:
+        return Data[datestamp]
+    except:
+        x = time.mktime(time.strptime(datestamp,'%Y-%m-%d %H:%M'))
+        dates = list(Data.keys())
+        dates.sort()
+        i = 0
+        while dates[i]< datestamp:
+            i+=1
+        x1,x2 =time.mktime(time.strptime(dates[i-1],'%Y-%m-%d %H:%M')),time.mktime(time.strptime(dates[i],'%Y-%m-%d %H:%M'))
+        y1,y2 = Data[dates[i-1]],Data[dates[i]]
+        if abs (x-x1) < 30*60 and abs (x-x2) < 30*60:
+            return round(y1 + (x-x1)*((y2-y1)/(x2-x1)),2)
+        else:
+            return ''
+def Graph(Data,w,h,win):
+    Xs = []
+    Ys = []
+    keys = list(Data.keys())
+    keys.sort()
+    ticks = []
+    for key in keys:
+        timestamp = time.mktime(time.strptime(key,'%Y-%m-%d %H:%M'))
+        Xs.append(timestamp)
+        Ys.append(float(Data[key]))
+        if key[-5:] == '06:00':
+            ticks.append(timestamp)
     r = 0
     canvas = Canvas(win, width=w, height=h, bg= 'white')
     scale_x = w/(max(Xs)-min(Xs))
@@ -25,6 +76,8 @@ def Graph(Xs,Ys,w,h,win):
         wy = h-(Ys[i-1]-min(Ys))*scale_y
         ty = h-(Ys[i]-min(Ys))*scale_y
         canvas.create_line(wx,wy,tx,ty,fill="red",width=2)
+    for i in range(len(ticks)):
+        canvas.create_line((ticks[i]-min(Xs))*scale_x,0,(ticks[i]-min(Xs))*scale_x,h,width=1,fill='grey')
     return canvas
 def GetBasin(lake):
     """Checks the basin_lakes dictionary for the lake code
@@ -50,6 +103,22 @@ def pad(t,l,s):
     while len(t) < l:
         t = s+t
     return t
+def datatypes(rdbfile):
+    datatypes = []
+    for line in rdbfile.split('\n'):
+        if line[13:15] == 'TS':
+            StartOfDD = 1
+        try:
+            if line[0] == '#'  and StartOfDD:
+                matchobj = re.match('#\D*(\d+)\D*(\d\d\d\d\d)\w*([^\[\]]*)(\[\\S+.*?\])?',line)
+                if matchobj:
+                    if matchobj.group(4):
+                        datatypes.append([matchobj.group(1),matchobj.group(2),matchobj.group(4)])
+                    else:
+                        datatypes.append([matchobj.group(1),matchobj.group(2),'Bar'])
+        except:
+            pass
+    return datatypes
 class gui:
     """Build the base menu to allow the selection of the lake for the DLB
     Lakes are presented in a dropdown menu sorted alphabeticly.  A "Load Entry Sheet" Button
@@ -61,24 +130,48 @@ class gui:
                       'Taylorsville':'TVL','WestFork':'WFR','W H Harsha':'WHL'}
         self.root = Tk()
         self.root.title('DLB Input Program')
-        MainFrame = Frame()
-        canvas = Canvas(self.root, height=500, width= 500, bg="white")
-        canvas.pack()
+        self.LaunchCanvas = Canvas(self.root, height=500, width= 500, bg="white")
+        self.LaunchCanvas.pack()
         self.tkvar = StringVar(self.root)
         self.tkvar.set('Choose Lake')
         lakesort= list(self.Lakes.keys())
         lakesort.sort()
-        popupMenu1 = OptionMenu(canvas, self.tkvar, *lakesort)
-        popupMenu1.grid(row=0,column = 0, rowspan=2, columnspan=2)
-        self.launch = Label(canvas,text="                                 ")
-        self.launch.grid(row=3,column=0,rowspan=2,columnspan=2)
-        Launch = Button(canvas,text="Load Entry Sheet",command = self.LoadDLB)
-        Launch.grid(row=5, column =0, rowspan=2, columnspan=2)
+        popupMenu1 = OptionMenu(self.LaunchCanvas, self.tkvar, *lakesort)
+        popupMenu1.config(width=60)
+        popupMenu1.config(height=5)
+        popupMenu1.grid(row=0,column = 0, rowspan=4, columnspan=4)
+        self.load_status = Label(self.LaunchCanvas,font=("Arial", 24))
+        self.load_status.grid(row=5,column=0,columnspan=4)
+        Launch = Button(self.LaunchCanvas,text="Load Entry Sheet",command = self.LoadDLB)
+        Launch.config(width=45)
+        Launch.config(height=5)
+        Launch.config(bg='light blue')
+        Launch.grid(row=9, column =0, rowspan=4, columnspan=4)
+        self.root.state('zoomed')
         self.root.mainloop()
-    def getData(self,lkname,loc,Data,parameter):
-        self.infobox.configure(text="Getting " + loc + " Data from USGS")
-        self.root.update_idletasks()
-        code = {'ELEV':'62614','Stage':'00065'}
+    def getData(self):
+        self.Data = {}
+        code = {'ELEV':'62614','Stage':'00065','Tailwater':'00010=on&cb_00065'}
+        Tailwater = {'BHR':'','BRR':'03313000','BVR':'03276000','CBR':'03268100','CCK':'03242350','CFK':'03277450',
+                     'CHL':'03340900','CMR':'03359000','CRR':'03249500','GRR':'03306000','MNR':'03372500','NRR':'03311000',
+                     'PRR':'03374500','RRR':'03318010','TVL':'03295597','WFR':'','WHL':'03247041'}
+        self.River_Stations =     {'BHR':['Hyden','Wooten','Tallega','Lock 14'],
+                              'BRR':['Alvaton','Bowling Green','Lock 4 (Woodbury)'],
+                              'BVR':['Alpine','Brookville'],
+                              'CBR':['Eagle City','Springfield (Mad R)'],
+                              'CCK':['Milford','Spring Valley'],
+                              'CFK':['Hazard'],
+                              'CHL':['Fincastle','Ferndale','Coxville'],
+                              'CMR':['Reelsville','Bowling Green','Spencer'],
+                              'CRR':['Salyersville','Farmers','Moorehead (TR. C)'],
+                              'GRR':['Greenburg','Columbia'],
+                              'MNR':['Shoals','Petersburg'],
+                              'NRR':['Munfordville','Brownsville'],
+                              'PRR':['Jasper'],
+                              'RRR':['Dundee'],
+                              'TVL':['Brashears Creek'],
+                              'WFR':['Reading','Carthage'],
+                              'WHL':['Perintown']}
         usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277450','CHL':'03340870','CMR':'03358900',
                'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
                'Hyden':'03280612','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
@@ -98,32 +191,81 @@ class gui:
                'Brashears Creek':'03295890',
                'Reading':'03255500','Carthage':'03259000',
                'Perintown':'03247500'}
-        if loc == 'Bowling Green':
-            if lkname == 'BRR':
-                station = loc + ' KY'
-            elif lkname == 'CMR':
-                station = loc + ' IN'
-        else:
-            station = loc
-        url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code[parameter]+'=on&format=rdb&site_no='+usgs[station]+'&period=4'
-        Xs = []
-        Ys = []
-        Data[loc] = {}
-        req = urllib.request.Request(url)
-        response = urllib.request.urlopen(req)
-        html = response.read()
-        html = html.decode('utf8')
-        for line in html.split('\n'):
-            if line.split('\t')[0] == 'USGS':
-                timestamp = time.mktime(time.strptime(line.split('\t')[2],'%Y-%m-%d %H:%M'))
-                Xs.append(timestamp)
-                Ys.append(float(line.split('\t')[4]))
-                Data[loc][line.split('\t')[2]] = float(line.split('\t')[4])
-        return Xs,Ys,Data
+        locs = []
+        for i in range(len(self.River_Stations[self.lkname])):
+            locs.append(self.River_Stations[self.lkname][i])
+        parameters = ['Stage']* len(locs)
+        locs.append(self.lkname)
+        locs.append('Tailwater')
+        parameters.append('ELEV')
+        parameters.append('Tailwater')
+        
+        for i in range(len(locs)):
+            try:
+                self.load_status.configure(text="Getting " + locs[i] + " Data from USGS")
+                self.root.update_idletasks()
+                url = ""
+                if locs[i] == 'Bowling Green':
+                    if self.lkname == 'BRR':
+                        station = locs[i] + ' KY'
+                    elif lkname == 'CMR':
+                        station = locs[i] + ' IN'
+                else:
+                    station = locs[i]
+                if parameters[i] == 'Tailwater':
+                    self.Data[locs[i]] = {}
+                    self.Data['WaterTemp'] = {}
+                    if Tailwater[self.lkname] != '':
+                        url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code['Tailwater']+'=on&format=rdb&site_no='+Tailwater[self.lkname]+'&period=7'
+                else:
+                    self.Data[locs[i]] = {}
+                    url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code[parameters[i]]+'=on&format=rdb&site_no='+usgs[station]+'&period=7'
+                if len(url) > 0:
+                    req = urllib.request.Request(url)
+                    response = urllib.request.urlopen(req)
+                    html = response.read()
+                    html = html.decode('utf8')
+                    types = datatypes(html)
+                    if self.lkname == 'TVL':
+                        for t in types:
+                            if t[2] == '[Tailwater]' and t[1] == '00065':
+                                    tail_off = 2*types.index(t)
+                            if t[2] == 'Bar' and t[1] == '00010':
+                                temp_off = 2*types.index(t)
+                    else:
+                        if types[0][1] == '00065':
+                            tail_off,temp_off = 0,2
+                        else:
+                            tail_off,temp_off = 2,0
+                    
+                    for line in html.split('\n'):
+                        if parameters[i] == 'Tailwater':
+                            if line.split('\t')[0] == 'USGS':
+                                try:
+                                    self.Data[locs[i]][line.split('\t')[2]] = float(line.split('\t')[4+tail_off])
+                                except:
+                                    pass
+                                try:
+                                    self.Data['WaterTemp'][line.split('\t')[2]] = float(line.split('\t')[4+temp_off])
+                                except:
+                                    pass
+                        else:
+                            if line.split('\t')[0] == 'USGS':
+                                try:
+                                    self.Data[locs[i]][line.split('\t')[2]] = float(line.split('\t')[4])
+                                except:
+                                    pass
+            except:
+                pass
+                        
     def LoadDLB(self):
-        self.Load_DLB_Interface(self.Lakes[self.tkvar.get()])
+        self.lkname = self.Lakes[self.tkvar.get()]
+        self.getData()
+        self.LaunchCanvas.destroy()
+        self.Load_DLB_Interface()
          
-    def Load_DLB_Interface(self,lkname):
+    def Load_DLB_Interface(self):
+        lkname = self.lkname
         """Gui interface is built dynamiclly using dictionary lookups to setup gate configurations, data validation criteria, and river stations using the lake code as the lookup"""
         self.Elev_Limits = {'BHR':[752,877],'BRR':[523,618],'BVR':[735,775],'CBR':[1004,1040],'CCK':[841,904],'CFK':[1012,1083],'CHL':[635,712],'CMR':[631,730],
                              'CRR':[719,788],'GRR':[663,734],'MNR':[533,574],'NRR':[487,581],'PRR':[527,564],'RRR':[465,554],'TVL':[540,623],'WFR':[670,735.5],'WHL':[724,819]}
@@ -147,27 +289,14 @@ class gui:
                               'TVL':[('Service Gate 1','MG1',0.6),('Bypass 1 Opening','BP1',1),('Bypass 1 Level','L1',9),('Service Gate 2','MG2',0.6),('Bypass 2 Opening','BP2',1),('Bypass 2 Level','L2',9)],
                               'WFR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1)],
                               'WHL':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',5),('Bypass 2 Level','L2',5)]}
-        self.River_Stations =     {'BHR':['Hyden','Wooten','Tallega','Lock 14'],
-                              'BRR':['Alvaton','Bowling Green','Lock 4 (Woodbury)'],
-                              'BVR':['Alpine','Brookville'],
-                              'CBR':['Eagle City','Springfield (Mad R)'],
-                              'CCK':['Milford','Spring Valley'],
-                              'CFK':['Hazard'],
-                              'CHL':['Fincastle','Ferndale','Coxville'],
-                              'CMR':['Reelsville','Bowling Green','Spencer'],
-                              'CRR':['Salyersville','Farmers','Moorehead (TR. C)'],
-                              'GRR':['Greenburg','Columbia'],
-                              'MNR':['Shoals','Petersburg'],
-                              'NRR':['Munfordville','Brownsville'],
-                              'PRR':['Jasper'],
-                              'RRR':['Dundee'],
-                              'TVL':['Brashears Creek'],
-                              'WFR':['Reading','Carthage'],
-                              'WHL':['Perintown']}
-        self.lkname = lkname
-        newWindow = Toplevel(self.root)
+
+
+        self.Validating = False
+        newWindow = Frame(self.root)
+        newWindow.pack()
+        self.infobox = Label(newWindow,font=("Arial", 10))
+        self.infobox.grid(row=4,column=12,rowspan=2,columnspan=3)
         self.recheck = False
-        self.lkname = lkname
         self.flow = ratings.GateRatingSet(self.lkname)
         Label(newWindow,text = lkname,font=("Arial", 25)).grid(row = 0, column = 12, rowspan=2)
         #Gate and Elevations Section.  Entries are stored as arrays of Entry Objects.
@@ -200,7 +329,7 @@ class gui:
         for j in range(len( self.Gate_configuration[lkname])):
             self.gates.append([])
         for i in range(20):
-            self.DateF.append(Entry(newWindow))
+            self.DateF.append(Label(newWindow))
             self.TimeF.append(Entry(newWindow))
             self.TimeF[i].bind('<FocusOut>',self.Validate_time)
             self.ElevF.append(Entry(newWindow))
@@ -212,13 +341,12 @@ class gui:
                 self.gates[j][i].bind('<FocusOut>',self.Validate)
             self.FlowL.append(Label(newWindow))
         self.gate_rows = list(zip(
-                self.DateF,
                 self.TimeF,
                 self.ElevF,
                 self.TailWaterF,
                 *self.gates,
             ))
-        Label(newWindow,text="OutFlow").grid(row=0,column=j+5)
+        Label(newWindow,text="Outflow (cfs)").grid(row=0,column=j+5)
         self.numrows = 0
         Button(newWindow,text="Add Gate Change",command = self.AddGateRow).grid(row=6,column=12)
         for i in range(4):
@@ -234,14 +362,17 @@ class gui:
         Label(newWindow,text="Last 24hrs").grid(row=23,column=2)
         self.precip = Entry(newWindow)
         self.precip.grid(row=24,column=2)
+        self.precip.bind('<FocusOut>',self.Validate)
         Label(newWindow,text="Snow On").grid(row=22,column=3)
         Label(newWindow,text="Ground").grid(row=23,column=3)
         self.snow = Entry(newWindow)
         self.snow.grid(row=24,column=3)
+        self.snow.bind('<FocusOut>',self.Validate)
         Label(newWindow,text="Snow Water").grid(row=22,column=4)
         Label(newWindow,text="Content").grid(row=23,column=4)
         self.swe = Entry(newWindow)
         self.swe.grid(row=24,column=4)
+        self.swe.bind('<FocusOut>',self.Validate)
         Label(newWindow,text="Present Weather").grid(row=23,column=5,columnspan=2)
         self.tkvar2 = StringVar(newWindow)
         self.tkvar2.set('Select Weather')
@@ -254,27 +385,47 @@ class gui:
         Label(newWindow,text="Max").grid(row=23,column=8)
         Label(newWindow,text="Tailwater").grid(row=22,column=10)
         Label(newWindow,text="Temp Degrees C").grid(row=23,column=10)
-        self.curTemp,self.minTemp,self.maxTemp,self.tailTemp = Entry(newWindow),Entry(newWindow),Entry(newWindow),Entry(newWindow)
+        self.curTemp,self.maxTemp,self.minTemp,self.tailTemp = Entry(newWindow),Entry(newWindow),Entry(newWindow),Entry(newWindow)
         self.curTemp.grid(row=24,column=7)
-        self.minTemp.grid(row=24,column=9)
+        self.curTemp.bind('<FocusOut>',self.Validate)
         self.maxTemp.grid(row=24,column=8)
+        self.minTemp.grid(row=24,column=9)
+        self.minTemp.bind('<FocusOut>',self.Validate)
+        self.maxTemp.bind('<FocusOut>',self.Validate)
         self.tailTemp.grid(row=24,column=10)
+        self.tailTemp.bind('<FocusOut>',self.Validate)
 #Aniticipated uses the same gate lookup as the Elevation and Gate section to populate both the lables and entry objects
         Label(newWindow,text="Anticipated next 06:00 Outlet Settings").grid(row=25,column=0,columnspan=3)
         r,c = 26,0
         for i in range(len( self.Gate_configuration[lkname])):
             Label(newWindow,text= self.Gate_configuration[lkname][i][0]).grid(row=r,column=c)
             c+=1
+        Label(newWindow,text='Anticipated Flow').grid(row=r,column=c)
         self.a_gates = []
         for j in range(len( self.Gate_configuration[lkname])):
             self.a_gates.append(Entry(newWindow))
             self.a_gates[j].grid(row=27,column=j)
+            self.a_gates[j].bind('<FocusOut>',self.Validate)
+        self.A_FlowL = Label(newWindow)
+        self.A_FlowL.grid(row=27,column=j+1)
 #River Station labels and entry objects are populated from the River_Stations Dictionary
         self.r_station = []
-        for i in range(len( self.River_Stations[lkname])):
+        elev_plot_frame = LabelFrame(newWindow, text='Lake', borderwidth=2, padx=10, pady=10)
+        elev_plot_frame.grid(row=37, column=0, columnspan=2, padx=10)
+        g = build_plot(elev_plot_frame, self.Data[lkname], lkname+ ' Elevation')
+        g.get_tk_widget().pack(side='left', padx=5)
+        g = build_plot(elev_plot_frame, self.Data['Tailwater'], 'Tailwater')
+        g.get_tk_widget().pack(side='right', padx=5)
+        cp_plot_frame = LabelFrame(newWindow, text='Control Points', borderwidth=2, padx=10, pady=10)
+        for i in range(len(self.River_Stations[lkname])):
+            station = self.River_Stations[lkname][i]
             Label(newWindow,text= self.River_Stations[lkname][i]).grid(row=28+i,column=0,columnspan=2)
             self.r_station.append(Entry(newWindow))
             self.r_station[i].grid(row=28+i,column=2)
+            g = build_plot(cp_plot_frame, self.Data[station], station)
+            g.get_tk_widget().pack(side='left', padx=5)
+        cp_plot_span = len(self.River_Stations[lkname]) * 2
+        cp_plot_frame.grid(row=37, column=2, columnspan=cp_plot_span, padx=5)
 #Remarks
         Label(newWindow,text='Remarks:').grid(row=34,column=0)
         self.remarks = Entry(newWindow,width=77)
@@ -282,29 +433,13 @@ class gui:
 # Submit Button and information label
         submit = Button(newWindow,text="Submit",command = self.Submit)
         submit.grid(row=34,column=8)
-        self.infobox = Label(newWindow,font=("Arial", 10))
-        self.infobox.grid(row=32,column=8,rowspan=2,columnspan=3)
-        Label(newWindow,text=lkname).grid(row=36,column=0,columnspan=2)
-        self.Data = {}
-        try:
-            Xs,Ys,self.Data = self.getData(lkname,lkname,self.Data,'ELEV')
-            g = Graph(Xs,Ys,200,200,newWindow)
-            g.grid(row=37,column=0,columnspan=2)
-        except:
-            pass
-        for i in range(len(self.River_Stations[lkname])):
-            try:
-                station = self.River_Stations[lkname][i]
-                Label(newWindow,text=station).grid(row=36,column=2*i+2,columnspan=2)
-                Xs,Ys,self.Data = self.getData(self.lkname,station,self.Data,'Stage')
-                g = Graph(Xs,Ys,200,200,newWindow)
-                g.grid(row=37,column=2*i+2,columnspan=2)
-            except:
-                pass
-        self.infobox.configure(text="")
+        #Label(newWindow,text=lkname+' Elev').grid(row=7,column=12,columnspan=2)
+        self.root.focus_force()
         self.root.update_idletasks()
         self.Load()
-        self.ElevF[0].focus_set()
+
+
+        
     def AddGateRow(self):
         if self.numrows < 20:
             self.DateF[self.numrows].grid(row=self.numrows+1,column=0)
@@ -314,7 +449,7 @@ class gui:
             for j in range(len( self.Gate_configuration[self.lkname])):
                 self.gates[j][self.numrows].grid(row=self.numrows+1,column=j+4)
             self.FlowL[self.numrows].grid(row=self.numrows+1,column=j+5)
-            if self.numrows >= 4:
+            if self.numrows >= 4 and self.Validating:
                 self.TimeF[self.numrows].focus_set()
             self.numrows += 1
     def Submit(self):
@@ -323,19 +458,25 @@ class gui:
         The output file is then copied and date stamped for archiving
         Finally the send.bat is called to transfer the files to the server."""
         err = self.find_submit_errors()
+        try:
+            x0,y0,x1,y1 = self.root.winfo_rootx(),self.root.winfo_rooty(),self.root.winfo_rootx()+self.root.winfo_width(),self.root.winfo_rooty()+self.root.winfo_height()
+            im = ImageGrab.grab((x0, y0, x1, y1))
+            im.save('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/Captured/'+self.lkname+'.jpg')
+            self.infobox.configure(text="Submission Started")
+            self.root.update_idletasks()     
+        except:
+            pass
         if err:
             mb.showwarning("Submission Halted Due to Error",err)
             return False
-        self.infobox.configure(text="Submission Started")
-        self.root.update_idletasks()
         year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime()
         Modtime = str(year)+pad(str(month),2,'0')+pad(str(day),2,'0')+pad(str(hour),2,'0')+pad(str(Min),2,'0')
         basin = GetBasin(self.lkname)
         f = open('o:/ED/PUBLIC/DLB/OUTPUT/'+self.lkname+'pydlb.txt','w')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date +' 0000 MODTIME:' + Modtime + '\n')
         f.write('#Lake Levels and Gate Setting\n')
-        for i in range(15):
-            if self.DateF[i].get():
+        for i in range(20):
+            if self.DateF[i]['text']:
                 if self.TimeF[i].get():
                     if self.ElevF[i].get():
                         gatesComplete = True
@@ -345,11 +486,11 @@ class gui:
                             else:
                                 gatesComplete = False
                         if gatesComplete:
-                            f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i].get() + ' ' + self.TimeF[i].get() +' ELEV :' + self.ElevF[i].get() +'\n')
+                            f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() +' ELEV :' + self.ElevF[i].get() +'\n')
                             if self.TailWaterF[i].get():
-                                f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i].get() + ' ' + self.TimeF[i].get() +' TAILWATER :' + self.TailWaterF[i].get() +'\n')
+                                f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() +' TAILWATER :' + self.TailWaterF[i].get() +'\n')
                             for j in range(len(self.Gate_configuration[self.lkname])):
-                                f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i].get() + ' ' + self.TimeF[i].get() + ' ' +  self.Gate_configuration[self.lkname][j][1] + ' :' + self.gates[j][i].get() + '\n')
+                                f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() + ' ' +  self.Gate_configuration[self.lkname][j][1] + ' :' + self.gates[j][i].get() + '\n')
         f.write('#Anticipateed and Gate Setting\n')
         for i in range(len(self.a_gates)):
             f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' + self.Gate_configuration[self.lkname][i][1][:-1] + '_ANTICIPATED_' + self.Gate_configuration[self.lkname][i][1][-1] + ' :' + self.a_gates[i].get() + '\n')
@@ -370,7 +511,7 @@ class gui:
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 REMARKS :' + self.remarks.get() + '\n')
         f.flush()
         f.close()
-        os.system('cp o:\\ed\\public\\dlb\\output\\' + self.lkname+'pydlb.txt o:\\ed\\public\\dlb\\archive\\' +self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt')
+        os.system('copy o:\\ed\\public\\dlb\\output\\' + self.lkname+'pydlb.txt o:\\ed\\public\\dlb\\archive\\' +self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt')
         self.infobox.configure(text="Starting Transfer to WM's Server")
         self.root.update_idletasks()
         os.system('o:\\ed\\public\\dlb\\database\\extract\\send.bat')
@@ -457,34 +598,36 @@ class gui:
     def Validate_time(self,event):
         """The time is checked using a regular expression.  If the time is not valid an error is displayed.
         If the time is valid the date for that row is set to the appropreate date"""
-        tm = re.compile("([01]?[0-9]|2[0-3])[0-5][0-9]")
-        if event.widget.get() != "":
-            if tm.match(event.widget.get()):
-                self.DateF[self.TimeF.index(event.widget)].delete(0,"end")
-                if int(event.widget.get()) > 600:
-                    year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-(self.Entry_dates.index(self.Date)+1)*60*60*24)
-                    yesterday = str(month)+'/'+str(day)+'/'+str(year)
-                    self.DateF[self.TimeF.index(event.widget)].insert(0,yesterday)
+        if self.Validating:
+            tm = re.compile("([01]?[0-9]|2[0-3])[0-5][0-9]")
+            if event.widget.get() != "":
+                if tm.match(event.widget.get()):
+                    if int(event.widget.get()) > 600:
+                        year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-(self.Entry_dates.index(self.Date)+1)*60*60*24)
+                        yesterday = str(month)+'/'+str(day)+'/'+str(year)
+                        self.DateF[self.TimeF.index(event.widget)].configure(text=yesterday)
+                    else:
+                        self.DateF[self.TimeF.index(event.widget)].configure(text=self.Date)
+                    for i in range(len(self.TimeF)):
+                        if self.TimeF[i] != event.widget and pad(event.widget.get(),4,'0') == pad(self.TimeF[i].get(),4,'0'):
+                            mb.showwarning("","Times must be unique")
+                            event.widget.focus_set()
+                            return
+                    if event.widget.get() == '2400':
+                        mon,day,year = self.Date.split('/')
+                        h,m = '00','00'
+                    else:
+                        mon,day,year = self.DateF[self.TimeF.index(event.widget)]['text'].split('/')
+                        h,m = int(int(event.widget.get())/100), int(event.widget.get())%100
+                    self.ElevF[self.TimeF.index(event.widget)].delete(0,"end")
+                    self.ElevF[self.TimeF.index(event.widget)].insert(0,Interpolate(self.Data[self.lkname],year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' '+pad(str(h),2,'0')+':'+pad(str(m),2,'0')))
+                    self.TailWaterF[self.TimeF.index(event.widget)].delete(0,"end")
+                    self.TailWaterF[self.TimeF.index(event.widget)].insert(0,Interpolate(self.Data['Tailwater'],year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' '+pad(str(h),2,'0')+':'+pad(str(m),2,'0')))
                 else:
-                    self.DateF[self.TimeF.index(event.widget)].insert(0,self.Date)
-                for i in range(len(self.TimeF)):
-                    if self.TimeF[i] != event.widget and pad(event.widget.get(),4,'0') == pad(self.TimeF[i].get(),4,'0'):
-                        mb.showwarning("","Times must be unique")
-                        event.widget.focus_set()
-                        return
-                if event.widget.get() == '2400':
-                    mon,day,year = self.Date.split('/')
-                    h,m = '00','00'
-                else:
-                    mon,day,year = self.DateF[self.TimeF.index(event.widget)].get().split('/')
-                    h,m = int(int(event.widget.get())/100), int(event.widget.get())%100
-                self.ElevF[self.TimeF.index(event.widget)].delete(0,"end")
-                self.ElevF[self.TimeF.index(event.widget)].insert(0,self.Data[self.lkname][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' '+pad(str(h),2,'0')+':'+pad(str(m),2,'0')])
+                    mb.showwarning("","Time is not in hhmm format")
+                    event.widget.focus_set()
             else:
-                mb.showwarning("","Time is not in hhmm format")
-                event.widget.focus_set()
-        else:
-            return
+                return
 
     def Validate(self,event):
         """Values for entry objects are checked against the criteria for their given bounds.
@@ -492,71 +635,142 @@ class gui:
         Then the min and max values are set accordingly
         If the value is outside of the bound an error is displayed.
         Finally if the value cannot be evaluated because it isn't the right datatype an error message indicating the value is not a number"""
-        try:
-            flow_calc = False
-            index = -1
-            gn = 0
-            if not (event.widget.get() == '') and not self.recheck:
-                if event.widget in self.ElevF:
-                    min_val, max_val = self.Elev_Limits[self.lkname]
-                    index = self.ElevF.index(event.widget)
-                if event.widget in self.TailWaterF:
-                    min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
-                for i in range(len(self.Gate_configuration[self.lkname])):
-                    if event.widget in self.gates[i]:
-                        if self.lkname == 'PRR':
-                            min_val,max_val=float(self.Gate_configuration[self.lkname][i][2]),float(self.Gate_configuration[self.lkname][i][3])
+        if self.Validating:
+            try:
+                stop = True
+                index = -901
+                if not (event.widget.get() == '') and not self.recheck:
+                    if event.widget in self.ElevF:
+                        min_val, max_val = self.Elev_Limits[self.lkname]
+                        index = self.ElevF.index(event.widget)
+                    if event.widget in self.TailWaterF:
+                        min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
+                    for i in range(len(self.Gate_configuration[self.lkname])):
+                        if event.widget in self.gates[i]:
+                            if self.lkname == 'PRR':
+                                min_val,max_val=float(self.Gate_configuration[self.lkname][i][2]),float(self.Gate_configuration[self.lkname][i][3])
+                            else:
+                                min_val,max_val = 0,float(self.Gate_configuration[self.lkname][i][2])
+                            index = self.gates[i].index(event.widget)
+                            if self.Gate_configuration[self.lkname][i][1][0] == 'M' and self.lkname not in ['CMR','CHL']:
+                                if float(event.widget.get()) > 0:
+                                    for j in range(len(self.Gate_configuration[self.lkname])):
+                                        try:
+                                            if self.Gate_configuration[self.lkname][j][1][0] == 'B' and float(self.gates[j][index].get()) > 0:
+                                                self.recheck = True
+                                                mb.showwarning("Odd Gate Setting","It's Unusal to have Main Gate and Bypasses both open")
+                                        except:
+                                            pass
+                            if self.Gate_configuration[self.lkname][i][1][0] == 'B' and self.lkname != 'TVL':
+                                if float(event.widget.get()) == 0.0:
+                                    for j in range(len(self.Gate_configuration[self.lkname])):
+                                        if self.Gate_configuration[self.lkname][j][1][0] == 'L':
+                                            if self.Gate_configuration[self.lkname][j][1][-1] == self.Gate_configuration[self.lkname][i][1][-1]:
+                                                self.gates[j][index].delete(0,'end')
+                                                self.gates[j][index].insert(0,'0')
+                                if float(event.widget.get()) > 0:
+                                    for j in range(len(self.Gate_configuration[self.lkname])):
+                                        if self.Gate_configuration[self.lkname][j][1][0] == 'M' and self.lkname not in ['CMR','CHL']:
+                                            if float(self.gates[j][index].get()) > 0:
+                                                self.recheck = True
+                                                mb.showwarning("Odd Gate Setting","It's Unusal to have Main Gate and Bypasses both open")
+                            if self.Gate_configuration[self.lkname][i][1][0] == 'L':
+                                try:
+                                    int(event.widget.get())
+                                except:
+                                    self.recheck = True
+                                    mb.showwarning("Entry Not Valid","Must be an integer")
+                                    event.widget.focus_set()
+                                    return
+                        if event.widget == self.a_gates[i]:
+                            index = -1
+                            if self.lkname == 'PRR':
+                                min_val,max_val=float(self.Gate_configuration[self.lkname][i][2]),float(self.Gate_configuration[self.lkname][i][3])
+                            else:
+                                min_val,max_val = 0,float(self.Gate_configuration[self.lkname][i][2])
+                            if self.Gate_configuration[self.lkname][i][1][0] == 'B' and self.lkname != 'TVL':
+                                if float(event.widget.get()) == 0.0:
+                                    for j in range(len(self.Gate_configuration[self.lkname])):
+                                        if self.Gate_configuration[self.lkname][j][1][0] == 'L':
+                                            if self.Gate_configuration[self.lkname][j][1][-1] == self.Gate_configuration[self.lkname][i][1][-1]:
+                                                self.a_gates[j].delete(0,'end')
+                                                self.a_gates[j].insert(0,'0')
+                            if self.Gate_configuration[self.lkname][i][1][0] == 'L':
+                                try:
+                                    int(event.widget.get())
+                                except:
+                                    self.recheck = True
+                                    mb.showwarning("Entry Not Valid","Must be an integer")
+                                    event.widget.focus_set()
+                                    return
+                    if event.widget in [self.curTemp,self.minTemp,self.maxTemp]:
+                        min_val, max_val = -50,130
+                    if event.widget == self.tailTemp:
+                        min_val, max_val = 0,50
+                    if event.widget in [self.precip,self.snow,self.swe]:
+                        min_val, max_val = 0,25
+                        stop = False
+                    val = float(event.widget.get())
+                    if val < min_val:
+                        self.recheck = True
+                        mb.showwarning(event.widget.get() +" : Entry Not Valid","Value is below normal range.\nPlease Check value.")
+                        if stop:
+                            event.widget.focus_set()
+                        return
+                    if val > max_val:
+                        self.recheck = True
+                        mb.showwarning(event.widget.get() +" : Entry Not Valid","Value is above normal range.\nPlease Check value.")
+                        if stop:
+                            event.widget.focus_set()
+                        return
+                else:
+                    self.recheck = False
+                flow = True
+                if index > -1:
+                    gates = {}
+                    for i in range(len(self.Gate_configuration[self.lkname])):
+                        if self.gates[i][index].get() == "":
+                            flow = False
                         else:
-                            min_val,max_val = 0,float(self.Gate_configuration[self.lkname][i][2])
-                        index = self.gates[i].index(event.widget)
-                        if self.Gate_configuration[self.lkname][i][1][0] == 'L':
-                            try:
-                                int(event.widget.get())
-                            except:
-                                self.recheck = True
-                                mb.showwarning("Entry Not Valid","Must be an integer")
-                                event.widget.focus_set()
-                                return
-                if event.widget in [self.curTemp,self.minTemp,self.maxTemp]:
-                    min_val, max_val = -50,130
-                if event.widget in [self.precip,self.snow,self.swe]:
-                    min_val, max_val = 0,50
-                val = float(event.widget.get())
-                if val < min_val:
-                    self.recheck = True
-                    mb.showwarning("Entry Not Valid","Value is below normal range.\nPlease Check value.")
-                    return
-                if val > max_val:
-                    self.recheck = True
-                    mb.showwarning("Entry Not Valid","Value is above normal range.\nPlease Check value.")
-                    return
-            else:
-                self.recheck = False
-            flow = True
-            if index > -1:
-                gates = {}
-                for i in range(len(self.Gate_configuration[self.lkname])):
-                    if self.gates[i][index].get() == "":
-                        flow = False
-                    else:
-                        if self.Gate_configuration[self.lkname][i][1] in ['L1','L2']:
-                            gates[self.Gate_configuration[self.lkname][i][1]] = int(self.gates[i][index].get())
+                            if self.Gate_configuration[self.lkname][i][1] in ['L1','L2']:
+                                gates[self.Gate_configuration[self.lkname][i][1]] = int(self.gates[i][index].get())
+                            else:
+                                gates[self.Gate_configuration[self.lkname][i][1]] = float(self.gates[i][index].get())
+                    for key in ['MG1','MG2','BP1','BP2','L1','L2']:
+                        if key not in gates.keys():
+                            gates[key] = 0
+                    if flow:
+                        try:
+                            self.FlowL[index].configure(text=str(self.flow.get_total_flow(float(self.ElevF[index].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
+                        except:
+                            self.FlowL[index].configure(text="Flow Computation Failed")
+                flow = True
+                if index == -1:
+                    gates = {}
+                    for i in range(len(self.Gate_configuration[self.lkname])):
+                        if self.a_gates[i].get() == "":
+                            flow = False
+                            self.A_FlowL.configure(text='')
                         else:
-                            gates[self.Gate_configuration[self.lkname][i][1]] = float(self.gates[i][index].get())
-                for key in ['MG1','MG2','BP1','BP2','L1','L2']:
-                    if key not in gates.keys():
-                        gates[key] = 0
-                if flow:
-                    try:
-                        self.FlowL[index].configure(text=str(self.flow.get_total_flow(float(self.ElevF[index].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
-                    except:
-                        self.FlowL[index].configure(text="Flow Computation Failed")
-        except:
-            mb.showwarning("Entry Not Valid","Must be a number.")
-            event.widget.focus_set()
+                            if self.Gate_configuration[self.lkname][i][1] in ['L1','L2']:
+                                gates[self.Gate_configuration[self.lkname][i][1]] = int(self.a_gates[i].get())
+                            else:
+                                gates[self.Gate_configuration[self.lkname][i][1]] = float(self.a_gates[i].get())
+                    for key in ['MG1','MG2','BP1','BP2','L1','L2']:
+                        if key not in gates.keys():
+                            gates[key] = 0
+                    if flow:
+                        try:
+                            self.A_FlowL.configure(text=str(self.flow.get_total_flow(float(self.ElevF[3].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
+                        except:
+                            self.A_FlowL.configure(text="Flow Computation Failed")
+            except:
+                mb.showwarning("Entry Not Valid","Must be a number.")
+                event.widget.focus_set()
     def Load(self,*args):
         """Checks for the presence of a date stamped file matching the lake and date.
         Parses the file and populates the entry objects"""
+        self.Validating = False
         self.Date = self.TkDate.get()
         filename = 'o:\\ed\\public\\dlb\\archive\\'+self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt'
         self.Clear()
@@ -578,7 +792,7 @@ class gui:
                             row = Times.index(meta[3])
                         else:
                             row = maxRow
-                            self.DateF[row].insert(0,meta[2])
+                            self.DateF[row].configure(text=meta[2])
                             self.TimeF[row].insert(0,meta[3])
                             Times.append(meta[3])
                             maxRow += 1
@@ -587,12 +801,12 @@ class gui:
                         self.TailWaterF[row].insert(0, data[:-1])
                     elif meta[4] in ['MG1','BP1','L1','MG2','BP2','L2']:
                         if meta[4] in Gates:
+                            self.gates[Gates.index(meta[4])][row].delete(0,"end")
                             self.gates[Gates.index(meta[4])][row].insert(0,data[:-1])
-                            self.gates[Gates.index(meta[4])][row].event_generate('<FocusOut>')
                         else:
                             Gates.append(meta[4])
+                            self.gates[Gates.index(meta[4])][row].delete(0,"end")
                             self.gates[Gates.index(meta[4])][row].insert(0,data[:-1])
-                            self.gates[Gates.index(meta[4])][row].event_generate('<FocusOut>')
                     elif meta[4].find('_ANTICIPATED_')>0:
                         self.a_gates[a].insert(0,data[:-1])
                         a+=1
@@ -619,13 +833,23 @@ class gui:
                     else:
                         self.r_station[r].insert(0,data[:-1])
                         r+=1
+            i = 0
+            while self.gates[0][i].get() != '':
+                if i > (self.numrows-1):
+                    self.AddGateRow()
+                i+=1
+            self.Validating = True
+            for i in range(20):
+                self.gates[0][i].event_generate('<FocusOut>')
+                self.root.update_idletasks()
+            self.a_gates[0].event_generate('<FocusOut>')
         else:
             year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-(self.Entry_dates.index(self.Date)+1)*60*60*24)
             yesterday = str(month)+'/'+str(day)+'/'+str(year)
             dates = [yesterday]*3 +[self.Date]+['']*16
             times = ['1200','1800','2400','0600'] + ['']*16
             for i in range(4):
-                self.DateF[i].insert(0,dates[i])
+                self.DateF[i].configure(text=dates[i])
                 self.TimeF[i].insert(0,times[i])
                 if times[i] == '2400':
                     h,m = '00','00'
@@ -637,22 +861,32 @@ class gui:
                     self.ElevF[i].insert(0,self.Data[self.lkname][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' '+pad(str(h),2,'0')+':'+pad(str(m),2,'0')])
                 except:
                     pass
+                try:
+                    self.TailWaterF[i].insert(0,self.Data['Tailwater'][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' '+pad(str(h),2,'0')+':'+pad(str(m),2,'0')])
+                except:
+                    pass
             mon2,day2,year2 = dates[0].split('/')
             try:
                 self.change.insert(0,str(round(self.Data[self.lkname][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'] - self.Data[self.lkname][year2+'-'+pad(mon2,2,'0')+'-'+pad(day2,2,'0') + ' 06:00'],2)))
             except:
                 pass
+            mon,day,year = self.Date.split('/')
             for i in range(len( self.River_Stations[self.lkname])):
                 try:
-                    mon,day,year = self.Date.split('/')
                     self.r_station[i].insert(0,self.Data[self.River_Stations[self.lkname][i]][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'])
                 except:
                     self.r_station[i].insert(0,'0')
+            try:
+                self.tailTemp.insert(0,self.Data['WaterTemp'][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'])
+            except:
+                pass
             self.ElevF[0].focus_force()
+        self.Validating = True
+                    
     def Clear(self):
         """Clears all of the values in the entry objects"""
         for i in range(20):
-            self.DateF[i].delete(0,"end")
+            self.DateF[i].configure(text='')
             self.TimeF[i].delete(0,"end")
             self.ElevF[i].delete(0,"end")
             self.TailWaterF[i].delete(0,"end")
