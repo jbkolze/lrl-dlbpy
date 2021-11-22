@@ -179,7 +179,7 @@ class gui:
                'Hyden':'03280612','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
                'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
                'Alpine':'03275000','Brookville':'03276000',
-               'Eagle City':'03267900','Springfield (MAD R)':'03269500',
+               'Eagle City':'03267900','Springfield (Mad R)':'03269500',
                'Milford':'03245500','Spring Valley':'03242050',
                'Hazard':'03277500',
                'Fincastle':'03340800','Ferndale':'03340900','Coxville':'03341300',
@@ -201,7 +201,6 @@ class gui:
         locs.append('Tailwater')
         parameters.append('ELEV')
         parameters.append('Tailwater')
-        
         for i in range(len(locs)):
             try:
                 self.load_status.configure(text="Getting " + locs[i] + " Data from USGS")
@@ -210,12 +209,12 @@ class gui:
                 if locs[i] == 'Bowling Green':
                     if self.lkname == 'BRR':
                         station = locs[i] + ' KY'
-                    elif lkname == 'CMR':
+                    elif self.lkname == 'CMR':
                         station = locs[i] + ' IN'
                 else:
                     station = locs[i]
                 if parameters[i] == 'Tailwater':
-                    self.Data[locs[i]] = {}
+                    self.Data['Tailwater'] = {}
                     self.Data['WaterTemp'] = {}
                     if Tailwater[self.lkname] != '':
                         url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code['Tailwater']+'=on&format=rdb&site_no='+Tailwater[self.lkname]+'&period=7'
