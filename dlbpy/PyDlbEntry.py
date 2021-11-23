@@ -17,6 +17,16 @@ import pandas as pd
 
 pd.plotting.register_matplotlib_converters()
 
+class EntryLabel(Message):
+    def __init__(self, parent, text, **kwargs):
+        super().__init__(
+            parent,
+            text=text,
+            justify=CENTER,
+            aspect=150,
+            **kwargs
+        )
+
 def build_plot(parent, data, title):
     sns.set()
     sns.set_context("paper")
@@ -503,7 +513,7 @@ class gui:
 
     def build_pool_change_frame(self, parent):
         pool_change_frame = LabelFrame(parent, text='Pool', borderwidth=2, padx=10, pady=10)
-        change_label = Message(pool_change_frame, text="24-Hour Change", aspect=150)
+        change_label = EntryLabel(pool_change_frame, "24-Hour Change")
         change_label.pack()
         self.change = Entry(pool_change_frame, width=7)
         self.change.pack()
@@ -511,15 +521,15 @@ class gui:
 
     def build_precip_frame(self, parent):
         precip_frame = LabelFrame(parent, text='Precipitation', borderwidth=2, padx=10, pady=10)
-        precip_label = Message(precip_frame, text="Last 24-Hour Depth", aspect=150)
+        precip_label = EntryLabel(precip_frame, "24-Hour Depth")
         precip_label.grid(row=0, column=0)
         self.precip = Entry(precip_frame, width=7)
         self.precip.grid(row=1, column=0)
-        snow_label = Message(precip_frame, text="Snow On Ground", aspect=150)
+        snow_label = EntryLabel(precip_frame, "Snow On Ground")
         snow_label.grid(row=0, column=1)
         self.snow = Entry(precip_frame, width=7)
         self.snow.grid(row=1, column=1)
-        swe_label = Message(precip_frame, text="Snow Water Content", aspect=150)
+        swe_label = EntryLabel(precip_frame, "Snow Water Content")
         swe_label.grid(row=0, column=2)
         self.swe = Entry(precip_frame, width=7)
         self.swe.grid(row=1, column=2)
