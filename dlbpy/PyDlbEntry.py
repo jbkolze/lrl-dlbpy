@@ -318,59 +318,15 @@ class gui:
         self.recheck = False
         self.flow = ratings.GateRatingSet(self.lkname)
         Label(newWindow,text = lkname,font=("Arial", 25)).grid(row = 0, column = 12, rowspan=2)
-        #Gate and Elevations Section.  Entries are stored as arrays of Entry Objects.
-        #Gate arrays are stored in an array and use the lookup to determine which gate a given array entry is from.
-        Label(newWindow,text ="Date").grid(row = 0, column = 0)
-        Label(newWindow,text ="Time").grid(row = 0, column = 1)
-        Label(newWindow,text ="Elevation").grid(row = 0, column = 2)
-        Label(newWindow,text ="Tailwater").grid(row = 0, column = 3)
-        r,c = 0,4
-        for i in range(len( self.Gate_configuration[lkname])):
-            Label(newWindow,text= self.Gate_configuration[lkname][i][0]).grid(row=r,column=c)
-            c+=1
-        self.DateF = []
-        self.TimeF = []
-        self.ElevF = []
-        self.TailWaterF = []
-        self.Entry_dates = []
-        for i in range(30):
-            year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-i*60*60*24)
-            self.Entry_dates.append(str(month)+'/'+str(day)+'/'+str(year))
-        year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime()
-        self.TkDate = StringVar(newWindow)
-        self.TkDate.set(str(month)+'/'+str(day)+'/'+str(year))
-        self.Date = self.TkDate.get()
+        
+        gate_settings_frame = self.build_gate_settings_frame(newWindow)
+        gate_settings_frame.grid(row=0, column=0, columnspan=2, padx=10)
+
         DateDropDown = OptionMenu(newWindow, self.TkDate, *self.Entry_dates)
         DateDropDown.grid(row = 2, column = 12,rowspan=2)
-        self.TkDate.trace('w', self.Load)
-        self.gates = []
-        self.FlowL = []
-        for j in range(len( self.Gate_configuration[lkname])):
-            self.gates.append([])
-        for i in range(20):
-            self.DateF.append(Label(newWindow,width=8))
-            self.TimeF.append(Entry(newWindow,width=8))
-            self.TimeF[i].bind('<FocusOut>',self.Validate_time)
-            self.ElevF.append(Entry(newWindow,width=8))
-            self.ElevF[i].bind('<FocusOut>',self.Validate)
-            self.TailWaterF.append(Entry(newWindow,width=8))
-            self.TailWaterF[i].bind('<FocusOut>',self.Validate)
-            for j in range(len( self.Gate_configuration[lkname])):
-                self.gates[j].append(Entry(newWindow,width=8))
-                self.gates[j][i].bind('<FocusOut>',self.Validate)
-            self.FlowL.append(Label(newWindow))
-        self.gate_rows = list(zip(
-                self.TimeF,
-                self.ElevF,
-                self.TailWaterF,
-                *self.gates,
-            ))
-        Label(newWindow,text="Outflow (cfs)").grid(row=0,column=j+5)
-        self.numrows = 0
         Button(newWindow,text="Add Gate Change",command = self.AddGateRow).grid(row=5,column=12)
         Button(newWindow,text="Remove Gate Change",command = self.RemoveGateRow).grid(row=6,column=12)
-        for i in range(4):
-            self.AddGateRow()
+        
 #Weather is standard for all lakes
         Label(newWindow,text="Pool").grid(row=21,column=0)
         Label(newWindow,text="24 Hour").grid(row=22,column=0)
@@ -470,6 +426,53 @@ class gui:
         self.Load()
         #self.root.wm_attributes('-fullscreen', 1)
 
+    def build_gate_settings_frame(self, parent):
+        lkname = self.lkname
+        #Gate and Elevations Section.  Entries are stored as arrays of Entry Objects.
+        #Gate arrays are stored in an array and use the lookup to determine which gate a given array entry is from.
+        gate_settings_frame = LabelFrame(parent, text='Gate Settings', borderwidth=2, padx=10, pady=10)
+        Label(gate_settings_frame,text ="Date").grid(row = 0, column = 0)
+        Label(gate_settings_frame,text ="Time").grid(row = 0, column = 1)
+        Label(gate_settings_frame,text ="Elevation").grid(row = 0, column = 2)
+        Label(gate_settings_frame,text ="Tailwater").grid(row = 0, column = 3)
+        r,c = 0,4
+        for i in range(len( self.Gate_configuration[lkname])):
+            Label(gate_settings_frame,text= self.Gate_configuration[lkname][i][0]).grid(row=r,column=c)
+            c+=1
+        self.DateF = []
+        self.TimeF = []
+        self.ElevF = []
+        self.TailWaterF = []
+        self.Entry_dates = []
+        for i in range(30):
+            year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-i*60*60*24)
+            self.Entry_dates.append(str(month)+'/'+str(day)+'/'+str(year))
+        year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime()
+        self.TkDate = StringVar(gate_settings_frame)
+        self.TkDate.set(str(month)+'/'+str(day)+'/'+str(year))
+        self.Date = self.TkDate.get()
+        self.TkDate.trace('w', self.Load)
+        self.gates = []
+        self.FlowL = []
+        for j in range(len( self.Gate_configuration[lkname])):
+            self.gates.append([])
+        for i in range(20):
+            self.DateF.append(Label(gate_settings_frame))
+            self.TimeF.append(Entry(gate_settings_frame))
+            self.TimeF[i].bind('<FocusOut>',self.Validate_time)
+            self.ElevF.append(Entry(gate_settings_frame))
+            self.ElevF[i].bind('<FocusOut>',self.Validate)
+            self.TailWaterF.append(Entry(gate_settings_frame))
+            self.TailWaterF[i].bind('<FocusOut>',self.Validate)
+            for j in range(len( self.Gate_configuration[lkname])):
+                self.gates[j].append(Entry(gate_settings_frame))
+                self.gates[j][i].bind('<FocusOut>',self.Validate)
+            self.FlowL.append(Label(gate_settings_frame))
+        Label(gate_settings_frame,text="Outflow (cfs)").grid(row=0,column=j+5)
+        self.numrows = 0
+        for i in range(4):
+            self.AddGateRow()
+        return gate_settings_frame
         
     def AddGateRow(self):
         if self.numrows < 20:
@@ -483,8 +486,14 @@ class gui:
             if self.numrows >= 4 and self.Validating:
                 self.TimeF[self.numrows].focus_set()
             self.numrows += 1
+            self.gate_rows = list(zip(
+                self.TimeF,
+                self.ElevF,
+                self.TailWaterF,
+                *self.gates,
+            ))
+            
     def RemoveGateRow(self):
-        print (self.numrows)
         if self.numrows >= 4:
             self.numrows -= 10
             self.DateF[self.numrows].configure(text='')
@@ -501,7 +510,13 @@ class gui:
             self.FlowL[self.numrows].grid_remove()
             if self.numrows >= 4 and self.Validating:
                 self.TimeF[self.numrows].focus_set()
-            
+            self.gate_rows = list(zip(
+                self.TimeF,
+                self.ElevF,
+                self.TailWaterF,
+                *self.gates,
+            ))
+
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
         If no errors it itterates through the entry objects to pruduce the output file.
