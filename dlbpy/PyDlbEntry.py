@@ -328,11 +328,8 @@ class gui:
         Button(newWindow,text="Remove Gate Change",command = self.RemoveGateRow).grid(row=6,column=12)
         
 #Weather is standard for all lakes
-        Label(newWindow,text="Pool").grid(row=21,column=0)
-        Label(newWindow,text="24 Hour").grid(row=22,column=0)
-        Label(newWindow,text="Change").grid(row=23,column=0)
-        self.change = Entry(newWindow,width=7)
-        self.change.grid(row=24,column=0)
+        pool_change_frame = self.build_pool_change_frame(newWindow)
+        pool_change_frame.grid(row=1, column=0)
         Label(newWindow,text="Precipitation").grid(row=21,column=2,columnspan=3)
         Label(newWindow,text="Amount").grid(row=22,column=2)
         Label(newWindow,text="Last 24hrs").grid(row=23,column=2)
@@ -516,6 +513,15 @@ class gui:
                 self.TailWaterF,
                 *self.gates,
             ))
+
+    def build_pool_change_frame(self, parent):
+        pool_change_frame = LabelFrame(parent, text='Pool', borderwidth=2, padx=10, pady=10)
+        change_label = Message(pool_change_frame, text="24-Hour Change", aspect=150)
+        change_label.pack()
+        self.change = Entry(pool_change_frame, width=7)
+        self.change.pack()
+        return pool_change_frame
+
 
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
