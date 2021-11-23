@@ -1,15 +1,13 @@
 from tkinter import *
 import time
 from datetime import datetime
-import calendar
 import ratings
 import os
 from os.path import exists
 import re
 from tkinter import messagebox as mb
 import urllib.request
-import math
-from PIL import Image, ImageGrab
+from PIL import ImageGrab
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from matplotlib.dates import DateFormatter, DayLocator
@@ -65,7 +63,6 @@ def Graph(Data,w,h,win):
         Ys.append(float(Data[key]))
         if key[-5:] == '06:00':
             ticks.append(timestamp)
-    r = 0
     canvas = Canvas(win, width=w, height=h, bg= 'white')
     scale_x = w/(max(Xs)-min(Xs))
     scale_y = h/(max(Ys)-min(Ys))
@@ -169,18 +166,21 @@ class gui:
                               'CMR':['Reelsville','Bowling Green','Spencer'],
                               'CRR':['Salyersville','Farmers','Moorehead (TR. C)'],
                               'GRR':['Greenburg','Columbia'],
-                              'MNR':['Shoals','Petersburg'],
+                              'MNR':['Shoals','Petersburg','Bedford'],
                               'NRR':['Munfordville','Brownsville'],
                               'PRR':['Jasper'],
                               'RRR':['Dundee'],
                               'TVL':['Brashears Creek'],
                               'WFR':['Reading','Carthage'],
                               'WHL':['Perintown']}
+        self.OtherStations = {'BRR':['Calhoun','Lock 4 (Woodbury)'],'NRR':['Calhoun','Lock 4 (Woodbury)'],'RRR':['Calhoun','Lock 4 (Woodbury)'],'GRR':['Calhoun','Lock 4 (Woodbury)'],
+                                     'CHL':['Terre Haute'],'CMR':['WhiteRiver@Petersburg'],'MNR':['Bedford'],
+                                     'BVR':[],'BHR':[],'CBR':[],'CCK':[],'CFK':[],'CRR':[],'PRR':[],'TVL':['Shepherdsville'],'WFR':[],'WHL':[]}
         usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277450','CHL':'03340870','CMR':'03358900',
                'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','RRR':'03318005','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
                'Hyden':'03280612','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
                'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
-               'Alpine':'03275000','Brookville':'03276000',
+               'Alpine':'03275000','Brookville':'03276500',
                'Eagle City':'03267900','Springfield (Mad R)':'03269500',
                'Milford':'03245500','Spring Valley':'03242050',
                'Hazard':'03277500',
@@ -194,10 +194,17 @@ class gui:
                'Dundee':'03319000',
                'Brashears Creek':'03295890',
                'Reading':'03255500','Carthage':'03259000',
-               'Perintown':'03247500'}
+               'Perintown':'03247500',
+               'Calhoun':'03320000','Terre Haute':'03341500','WhiteRiver@Petersburg':'03374000','Bedford':'03371500','Shepherdsville':'03298500'}
         locs = []
         for i in range(len(self.River_Stations[self.lkname])):
             locs.append(self.River_Stations[self.lkname][i])
+        try:
+            for i in range(len(self.OtherStations[self.lkname])):
+                if self.OtherStations[self.lkname][i] not in locs:
+                    locs.append(self.OtherStations[self.lkname][i])
+        except:
+            pass
         parameters = ['Stage']* len(locs)
         locs.append(self.lkname)
         locs.append('Tailwater')
@@ -235,6 +242,8 @@ class gui:
                                     tail_off = 2*types.index(t)
                             if t[2] == 'Bar' and t[1] == '00010':
                                 temp_off = 2*types.index(t)
+                    elif self.lkname == 'BVR':
+                        tail_off,temp_off = 0,2
                     else:
                         if types[0][1] == '00065':
                             tail_off,temp_off = 0,2
@@ -414,7 +423,7 @@ class gui:
 #River Station labels and entry objects are populated from the River_Stations Dictionary
         self.r_station = []
         elev_plot_frame = LabelFrame(newWindow, text='Lake', borderwidth=2, padx=10, pady=10)
-        elev_plot_frame.grid(row=37, column=0, columnspan=2, padx=10)
+        elev_plot_frame.grid(row=37, column=0, columnspan=4, padx=10)
         g = build_plot(elev_plot_frame, self.Data[lkname], lkname+ ' Elevation')
         g.get_tk_widget().pack(side='left', padx=5)
         g = build_plot(elev_plot_frame, self.Data['Tailwater'], 'Tailwater')
@@ -427,8 +436,18 @@ class gui:
             self.r_station[i].grid(row=28+i,column=2)
             g = build_plot(cp_plot_frame, self.Data[station], station)
             g.get_tk_widget().pack(side='left', padx=5)
-        cp_plot_span = len(self.River_Stations[lkname]) * 2
-        cp_plot_frame.grid(row=37, column=2, columnspan=cp_plot_span, padx=5)
+            extrapad = 0
+        for i in range(len(self.OtherStations[self.lkname])):
+            if self.OtherStations[self.lkname][i] not in self.River_Stations[lkname]:
+                station = self.OtherStations[lkname][i]
+                g = build_plot(cp_plot_frame, self.Data[station], station)
+                g.get_tk_widget().pack(side='left', padx=5)
+                extrapad+=1
+                mon,day,year = self.Date.split('/')
+                Label(newWindow,text= self.OtherStations[lkname][i]).grid(row=28+i+len(self.River_Stations[self.lkname]),column=0,columnspan=2)
+                Label(newWindow,text= str(self.Data[self.OtherStations[lkname][i]][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'])).grid(row=28+i+len(self.River_Stations[self.lkname]),column=2)
+        cp_plot_span = (len(self.River_Stations[lkname])+extrapad) * 2
+        cp_plot_frame.grid(row=37, column=4, columnspan=cp_plot_span, padx=5)
 #Remarks
         Label(newWindow,text='Remarks:').grid(row=34,column=0)
         self.remarks = Entry(newWindow,width=77)
@@ -652,6 +671,9 @@ class gui:
                         if event.widget in self.gates[i]:
                             if self.lkname == 'PRR':
                                 min_val,max_val=float(self.Gate_configuration[self.lkname][i][2]),float(self.Gate_configuration[self.lkname][i][3])
+                                if self.Gate_configuration[self.lkname][i][1][0] == 'L':
+                                    if int(self.event.widget.get()) == 0:
+                                        return
                             else:
                                 min_val,max_val = 0,float(self.Gate_configuration[self.lkname][i][2])
                             index = self.gates[i].index(event.widget)
@@ -769,6 +791,7 @@ class gui:
                             self.A_FlowL.configure(text="Flow Computation Failed")
             except:
                 mb.showwarning("Entry Not Valid","Must be a number.")
+                self.recheck = True
                 event.widget.focus_set()
     def Load(self,*args):
         """Checks for the presence of a date stamped file matching the lake and date.
