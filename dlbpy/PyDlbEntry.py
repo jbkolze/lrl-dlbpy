@@ -330,22 +330,9 @@ class gui:
 #Weather is standard for all lakes
         pool_change_frame = self.build_pool_change_frame(newWindow)
         pool_change_frame.grid(row=1, column=0)
-        Label(newWindow,text="Precipitation").grid(row=21,column=2,columnspan=3)
-        Label(newWindow,text="Amount").grid(row=22,column=2)
-        Label(newWindow,text="Last 24hrs").grid(row=23,column=2)
-        self.precip = Entry(newWindow,width=8)
-        self.precip.grid(row=24,column=2)
-        self.precip.bind('<FocusOut>',self.Validate)
-        Label(newWindow,text="Snow On").grid(row=22,column=3)
-        Label(newWindow,text="Ground").grid(row=23,column=3)
-        self.snow = Entry(newWindow,width=8)
-        self.snow.grid(row=24,column=3)
-        self.snow.bind('<FocusOut>',self.Validate)
-        Label(newWindow,text="Snow Water").grid(row=22,column=4)
-        Label(newWindow,text="Content").grid(row=23,column=4)
-        self.swe = Entry(newWindow,width=8)
-        self.swe.grid(row=24,column=4)
-        self.swe.bind('<FocusOut>',self.Validate)
+        precip_frame = self.build_precip_frame(newWindow)
+        precip_frame.grid(row=1, column=1)
+        
         Label(newWindow,text="Present Weather").grid(row=23,column=5,columnspan=2)
         self.tkvar2 = StringVar(newWindow)
         self.tkvar2.set('Select Weather')
@@ -521,6 +508,24 @@ class gui:
         self.change = Entry(pool_change_frame, width=7)
         self.change.pack()
         return pool_change_frame
+
+    def build_precip_frame(self, parent):
+        precip_frame = LabelFrame(parent, text='Precipitation', borderwidth=2, padx=10, pady=10)
+        precip_label = Message(precip_frame, text="Last 24-Hour Depth", aspect=150)
+        precip_label.grid(row=0, column=0)
+        self.precip = Entry(precip_frame, width=7)
+        self.precip.grid(row=1, column=0)
+        snow_label = Message(precip_frame, text="Snow On Ground", aspect=150)
+        snow_label.grid(row=0, column=1)
+        self.snow = Entry(precip_frame, width=7)
+        self.snow.grid(row=1, column=1)
+        swe_label = Message(precip_frame, text="Snow Water Content", aspect=150)
+        swe_label.grid(row=0, column=2)
+        self.swe = Entry(precip_frame, width=7)
+        self.swe.grid(row=1, column=2)
+        for entry in [self.precip, self.snow, self.swe]:
+            entry.bind('<FocusOut>', self.Validate)
+        return precip_frame
 
 
     def Submit(self):
