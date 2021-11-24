@@ -517,41 +517,51 @@ class gui:
                 *self.gates,
             ))
 
+    def layout_entry_grid(self, parent, entry_pairs):
+        for i, (label_text, entry) in enumerate(entry_pairs):
+            EntryLabel(parent, label_text).grid(row=0, column=i)
+            entry.grid(row=1, column=i)
+
     def build_pool_change_frame(self, parent):
         pool_change_frame = DlbLabelFrame(parent, 'Pool')
-        change_label = EntryLabel(pool_change_frame, "24-Hour Change")
-        change_label.pack()
         self.change = Entry(pool_change_frame, width=7)
-        self.change.pack()
+        self.layout_entry_grid(
+            pool_change_frame,
+            [
+                ("24-Hour Change", self.change),
+            ]
+        )
         return pool_change_frame
 
     def build_precip_frame(self, parent):
         precip_frame = DlbLabelFrame(parent, 'Precipitation')
-        precip_label = EntryLabel(precip_frame, "24-Hour Depth")
-        precip_label.grid(row=0, column=0)
         self.precip = Entry(precip_frame, width=7)
-        self.precip.grid(row=1, column=0)
-        snow_label = EntryLabel(precip_frame, "Snow On Ground")
-        snow_label.grid(row=0, column=1)
         self.snow = Entry(precip_frame, width=7)
-        self.snow.grid(row=1, column=1)
-        swe_label = EntryLabel(precip_frame, "Snow Water Content")
-        swe_label.grid(row=0, column=2)
         self.swe = Entry(precip_frame, width=7)
-        self.swe.grid(row=1, column=2)
+        self.layout_entry_grid(
+            precip_frame,
+            [
+                ("24-Hour Depth", self.precip),
+                ("Snow On Ground", self.snow),
+                ("Snow Water Content", self.swe),
+            ]
+        )
         for entry in [self.precip, self.snow, self.swe]:
             entry.bind('<FocusOut>', self.Validate)
         return precip_frame
 
     def build_weather_frame(self, parent):
         weather_frame = DlbLabelFrame(parent, 'Weather')
-        weather_label = EntryLabel(weather_frame, "Present Weather")
-        weather_label.pack()
         self.weather = StringVar(weather_frame)
         self.weather.set('Select Weather')
         weather_conditions = ['Clear','Fair','Hazy','Fog','Partly Cloudy','Cloudy','Drizzle','Light Rain','Rain','Showers','Thunderstorms','Sleet','Freezing Rain','Light Snow','Snow','Blowing Snow','Dust Storm']
         weather_menu = OptionMenu(weather_frame, self.weather, *weather_conditions)
-        weather_menu.pack()
+        self.layout_entry_grid(
+            weather_frame,
+            [
+                ("Present Weather", weather_menu),
+            ]
+        )
         return weather_frame
 
     def Submit(self):
