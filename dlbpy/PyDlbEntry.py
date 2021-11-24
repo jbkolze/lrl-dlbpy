@@ -23,8 +23,7 @@ class EntryLabel(Message):
             parent,
             text=text,
             justify=CENTER,
-            aspect=150,
-            **kwargs
+            **kwargs,
         )
 
 class DlbLabelFrame(LabelFrame):
@@ -34,7 +33,8 @@ class DlbLabelFrame(LabelFrame):
             text=text,
             borderwidth=2,
             padx=10,
-            pady=10
+            pady=10,
+            **kwargs,
         )
 
 def build_plot(parent, data, title):
@@ -340,36 +340,21 @@ class gui:
         Label(newWindow,text = lkname,font=("Arial", 25)).grid(row = 0, column = 12, rowspan=2)
         
         gate_settings_frame = self.build_gate_settings_frame(newWindow)
-        gate_settings_frame.grid(row=0, column=0, columnspan=2, padx=10)
+        gate_settings_frame.grid(row=0, column=0, columnspan=4, padx=10)
 
         DateDropDown = OptionMenu(newWindow, self.TkDate, *self.Entry_dates)
         DateDropDown.grid(row = 2, column = 12,rowspan=2)
         Button(newWindow,text="Add Gate Change",command = self.AddGateRow).grid(row=5,column=12)
         Button(newWindow,text="Remove Gate Change",command = self.RemoveGateRow).grid(row=6,column=12)
         
-#Weather is standard for all lakes
         pool_change_frame = self.build_pool_change_frame(newWindow)
-        pool_change_frame.grid(row=1, column=0)
         precip_frame = self.build_precip_frame(newWindow)
-        precip_frame.grid(row=1, column=1)
         weather_frame = self.build_weather_frame(newWindow)
-        weather_frame.grid(row=1, column=2)
-        
-        Label(newWindow,text="Temperature").grid(row=21,column=7,columnspan=4)
-        Label(newWindow,text="Current").grid(row=23,column=7)
-        Label(newWindow,text="Min").grid(row=23,column=9)
-        Label(newWindow,text="Max").grid(row=23,column=8)
-        Label(newWindow,text="Tailwater").grid(row=22,column=10)
-        Label(newWindow,text="Temp Degrees C").grid(row=23,column=10)
-        self.curTemp,self.maxTemp,self.minTemp,self.tailTemp = Entry(newWindow,width=8),Entry(newWindow,width=8),Entry(newWindow,width=8),Entry(newWindow,width=8)
-        self.curTemp.grid(row=24,column=7)
-        self.curTemp.bind('<FocusOut>',self.Validate)
-        self.maxTemp.grid(row=24,column=8)
-        self.minTemp.grid(row=24,column=9)
-        self.minTemp.bind('<FocusOut>',self.Validate)
-        self.maxTemp.bind('<FocusOut>',self.Validate)
-        self.tailTemp.grid(row=24,column=10)
-        self.tailTemp.bind('<FocusOut>',self.Validate)
+        weather_frame.grid_propagate(0)
+        temperature_frame = self.build_temperature_frame(newWindow)
+        for i, frame in enumerate([pool_change_frame, precip_frame, weather_frame, temperature_frame]):
+            frame.grid(row=1, column=i, padx=10, sticky='ns')
+
 #Aniticipated uses the same gate lookup as the Elevation and Gate section to populate both the lables and entry objects
         Label(newWindow,text="Anticipated next 06:00 Outlet Settings").grid(row=25,column=0,columnspan=3)
         r,c = 26,0
@@ -517,10 +502,12 @@ class gui:
                 *self.gates,
             ))
 
-    def layout_entry_grid(self, parent, entry_pairs):
+    def layout_entry_grid(self, parent: LabelFrame, entry_pairs):
         for i, (label_text, entry) in enumerate(entry_pairs):
-            EntryLabel(parent, label_text).grid(row=0, column=i)
-            entry.grid(row=1, column=i)
+            EntryLabel(parent, label_text).grid(row=0, column=i, sticky="n")
+            entry.grid(row=1, column=i, sticky="s")
+            parent.columnconfigure(i, minsize=50)
+        parent.rowconfigure(0, weight=1)
 
     def build_pool_change_frame(self, parent):
         pool_change_frame = DlbLabelFrame(parent, 'Pool')
@@ -551,7 +538,7 @@ class gui:
         return precip_frame
 
     def build_weather_frame(self, parent):
-        weather_frame = DlbLabelFrame(parent, 'Weather')
+        weather_frame = DlbLabelFrame(parent, 'Weather', width=150)
         self.weather = StringVar(weather_frame)
         self.weather.set('Select Weather')
         weather_conditions = ['Clear','Fair','Hazy','Fog','Partly Cloudy','Cloudy','Drizzle','Light Rain','Rain','Showers','Thunderstorms','Sleet','Freezing Rain','Light Snow','Snow','Blowing Snow','Dust Storm']
@@ -562,7 +549,29 @@ class gui:
                 ("Present Weather", weather_menu),
             ]
         )
+        weather_frame.columnconfigure(0, weight=1)
         return weather_frame
+
+    def build_temperature_frame(self, parent):
+        temperature_frame = DlbLabelFrame(parent, 'Temperature')
+        self.curTemp = Entry(temperature_frame, width=7)
+        self.minTemp = Entry(temperature_frame, width=7)
+        self.maxTemp = Entry(temperature_frame, width=7)
+        self.tailTemp = Entry(temperature_frame, width=7)
+        deg = u'\N{DEGREE SIGN}'
+        self.layout_entry_grid(
+            temperature_frame,
+            [
+                ("Current", self.curTemp),
+                ("Min", self.minTemp),
+                ("Max", self.maxTemp),
+                (f"Tailwater ({deg}C)", self.tailTemp),
+            ]
+        )
+        for entry in [self.curTemp, self.maxTemp, self.minTemp, self.tailTemp]:
+            entry.bind('<FocusOut>', self.Validate)
+        return temperature_frame
+        
 
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
