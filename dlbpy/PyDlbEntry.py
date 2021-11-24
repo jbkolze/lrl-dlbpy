@@ -342,13 +342,9 @@ class gui:
         pool_change_frame.grid(row=1, column=0)
         precip_frame = self.build_precip_frame(newWindow)
         precip_frame.grid(row=1, column=1)
+        weather_frame = self.build_weather_frame(newWindow)
+        weather_frame.grid(row=1, column=2)
         
-        Label(newWindow,text="Present Weather").grid(row=23,column=5,columnspan=2)
-        self.tkvar2 = StringVar(newWindow)
-        self.tkvar2.set('Select Weather')
-        weather_conditions = ['Clear','Fair','Hazy','Fog','Partly Cloudy','Cloudy','Drizzle','Light Rain','Rain','Showers','Thunderstorms','Sleet','Freezing Rain','Light Snow','Snow','Blowing Snow','Dust Storm']
-        self.weather = OptionMenu(newWindow, self.tkvar2, *weather_conditions)
-        self.weather.grid(row=24,column=5,columnspan=2)
         Label(newWindow,text="Temperature").grid(row=21,column=7,columnspan=4)
         Label(newWindow,text="Current").grid(row=23,column=7)
         Label(newWindow,text="Min").grid(row=23,column=9)
@@ -537,6 +533,16 @@ class gui:
             entry.bind('<FocusOut>', self.Validate)
         return precip_frame
 
+    def build_weather_frame(self, parent):
+        weather_frame = LabelFrame(parent, text='Weather', borderwidth=2, padx=10, pady=10)
+        weather_label = EntryLabel(weather_frame, "Present Weather")
+        weather_label.pack()
+        self.weather = StringVar(weather_frame)
+        self.weather.set('Select Weather')
+        weather_conditions = ['Clear','Fair','Hazy','Fog','Partly Cloudy','Cloudy','Drizzle','Light Rain','Rain','Showers','Thunderstorms','Sleet','Freezing Rain','Light Snow','Snow','Blowing Snow','Dust Storm']
+        weather_menu = OptionMenu(weather_frame, self.weather, *weather_conditions)
+        weather_menu.pack()
+        return weather_frame
 
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
@@ -585,7 +591,7 @@ class gui:
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 AMTRAIN :' + self.precip.get() +'\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 SNOW :' + self.snow.get() +'\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 SNOWWATER :' + self.swe.get() + '\n')
-        f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 PRESWEATHR :' + self.tkvar2.get() + '\n')
+        f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 PRESWEATHR :' + self.weather.get() + '\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 AIR :' + self.curTemp.get() + '\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 MAX :' + self.maxTemp.get() + '\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 MIN :' + self.minTemp.get() + '\n')
@@ -651,7 +657,7 @@ class gui:
         for i, gate in enumerate(self.Gate_configuration[self.lkname]):
             required_fields.append([f'Ant. {gate[0]}', self.a_gates[i]])
         missing_fields = [x[0] for x in required_fields if x[1].get() == '']
-        if self.tkvar2.get() == 'Select Weather':
+        if self.weather.get() == 'Select Weather':
             missing_fields.append('Present Weather')
         if missing_fields:
             return f'The following required fields are missing: {missing_fields}'
@@ -929,7 +935,7 @@ class gui:
                     elif meta[4] == 'SNOWWATER':
                         self.swe.insert(0,data[:-1])
                     elif meta[4] == 'PRESWEATHR':
-                        self.tkvar2.set(data[:-1])
+                        self.weather.set(data[:-1])
                     elif meta[4] == 'AIR':
                         self.curTemp.insert(0,data[:-1])
                     elif meta[4] == 'MAX':
@@ -1010,7 +1016,7 @@ class gui:
         self.precip.delete(0,"end")
         self.snow.delete(0,"end")
         self.swe.delete(0,"end")
-        self.tkvar2.set('Select Weather')
+        self.weather.set('Select Weather')
         self.curTemp.delete(0,"end")
         self.minTemp.delete(0,"end")
         self.maxTemp.delete(0,"end")
