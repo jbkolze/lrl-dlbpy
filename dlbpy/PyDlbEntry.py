@@ -350,25 +350,16 @@ class gui:
         pool_change_frame = self.build_pool_change_frame(newWindow)
         precip_frame = self.build_precip_frame(newWindow)
         weather_frame = self.build_weather_frame(newWindow)
-        weather_frame.grid_propagate(0)
+        weather_frame.grid_propagate(0)  # Fixed width to prevent GUI "bouncing"
         temperature_frame = self.build_temperature_frame(newWindow)
         for i, frame in enumerate([pool_change_frame, precip_frame, weather_frame, temperature_frame]):
-            frame.grid(row=1, column=i, padx=10, sticky='ns')
+            frame.grid(row=1, column=i, padx=10, sticky='nsew')
 
 #Aniticipated uses the same gate lookup as the Elevation and Gate section to populate both the lables and entry objects
-        Label(newWindow,text="Anticipated next 06:00 Outlet Settings").grid(row=25,column=0,columnspan=3)
-        r,c = 26,0
-        for i in range(len( self.Gate_configuration[lkname])):
-            Label(newWindow,text= self.Gate_configuration[lkname][i][0]).grid(row=r,column=c)
-            c+=1
-        Label(newWindow,text='Anticipated Flow').grid(row=r,column=c)
-        self.a_gates = []
-        for j in range(len( self.Gate_configuration[lkname])):
-            self.a_gates.append(Entry(newWindow,width=8))
-            self.a_gates[j].grid(row=27,column=j)
-            self.a_gates[j].bind('<FocusOut>',self.Validate)
-        self.A_FlowL = Label(newWindow)
-        self.A_FlowL.grid(row=27,column=j+1)
+        anticipated_frame = self.build_anticipated_frame(newWindow)
+        for i, frame in enumerate([anticipated_frame]):
+            frame.grid(row=2, column=i, columnspan=2, padx=10, sticky='nsew')
+
 #River Station labels and entry objects are populated from the River_Stations Dictionary
         self.r_station = []
         elev_plot_frame = LabelFrame(newWindow, text='Lake', borderwidth=2, padx=10, pady=10)
@@ -506,7 +497,7 @@ class gui:
         for i, (label_text, entry) in enumerate(entry_pairs):
             EntryLabel(parent, label_text).grid(row=0, column=i, sticky="n")
             entry.grid(row=1, column=i, sticky="s")
-            parent.columnconfigure(i, minsize=50)
+            parent.columnconfigure(i, minsize=50, weight=1)
         parent.rowconfigure(0, weight=1)
 
     def build_pool_change_frame(self, parent):
@@ -571,8 +562,23 @@ class gui:
         for entry in [self.curTemp, self.maxTemp, self.minTemp, self.tailTemp]:
             entry.bind('<FocusOut>', self.Validate)
         return temperature_frame
-        
 
+    def build_anticipated_frame(self, parent):
+        anticipated_frame = DlbLabelFrame(parent, "Anticipated Settings (Next 0600)")
+        gate_pairs = []
+        self.a_gates = []
+        for i, gate in enumerate(self.Gate_configuration[self.lkname]):
+            label = gate[0]
+            entry = Entry(anticipated_frame, width=7)
+            self.a_gates.append(entry)
+            gate_pairs.append((label, entry))
+        self.A_FlowL = Label(anticipated_frame)
+        gate_pairs.append(("Outflow (cfs)", self.A_FlowL))
+        self.layout_entry_grid(anticipated_frame, gate_pairs)
+        for label, entry in gate_pairs:
+            entry.bind('<FocusOut>', self.Validate)
+        return anticipated_frame
+        
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
         If no errors it itterates through the entry objects to pruduce the output file.
