@@ -27,6 +27,16 @@ class EntryLabel(Message):
             **kwargs
         )
 
+class DlbLabelFrame(LabelFrame):
+    def __init__(self, parent, text, **kwargs):
+        super().__init__(
+            parent,
+            text=text,
+            borderwidth=2,
+            padx=10,
+            pady=10
+        )
+
 def build_plot(parent, data, title):
     sns.set()
     sns.set_context("paper")
@@ -420,7 +430,7 @@ class gui:
         lkname = self.lkname
         #Gate and Elevations Section.  Entries are stored as arrays of Entry Objects.
         #Gate arrays are stored in an array and use the lookup to determine which gate a given array entry is from.
-        gate_settings_frame = LabelFrame(parent, text='Gate Settings', borderwidth=2, padx=10, pady=10)
+        gate_settings_frame = DlbLabelFrame(parent, 'Gate Settings')
         Label(gate_settings_frame,text ="Date").grid(row = 0, column = 0)
         Label(gate_settings_frame,text ="Time").grid(row = 0, column = 1)
         Label(gate_settings_frame,text ="Elevation").grid(row = 0, column = 2)
@@ -508,7 +518,7 @@ class gui:
             ))
 
     def build_pool_change_frame(self, parent):
-        pool_change_frame = LabelFrame(parent, text='Pool', borderwidth=2, padx=10, pady=10)
+        pool_change_frame = DlbLabelFrame(parent, 'Pool')
         change_label = EntryLabel(pool_change_frame, "24-Hour Change")
         change_label.pack()
         self.change = Entry(pool_change_frame, width=7)
@@ -516,7 +526,7 @@ class gui:
         return pool_change_frame
 
     def build_precip_frame(self, parent):
-        precip_frame = LabelFrame(parent, text='Precipitation', borderwidth=2, padx=10, pady=10)
+        precip_frame = DlbLabelFrame(parent, 'Precipitation')
         precip_label = EntryLabel(precip_frame, "24-Hour Depth")
         precip_label.grid(row=0, column=0)
         self.precip = Entry(precip_frame, width=7)
@@ -534,7 +544,7 @@ class gui:
         return precip_frame
 
     def build_weather_frame(self, parent):
-        weather_frame = LabelFrame(parent, text='Weather', borderwidth=2, padx=10, pady=10)
+        weather_frame = DlbLabelFrame(parent, 'Weather')
         weather_label = EntryLabel(weather_frame, "Present Weather")
         weather_label.pack()
         self.weather = StringVar(weather_frame)
