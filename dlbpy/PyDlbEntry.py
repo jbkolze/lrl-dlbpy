@@ -18,6 +18,7 @@ import pandas as pd
 pd.plotting.register_matplotlib_converters()
 
 class EntryLabel(Message):
+    #TODO: Fiddle with aspect for labels
     def __init__(self, parent, text, **kwargs):
         super().__init__(
             parent,
@@ -200,7 +201,7 @@ class gui:
                               'TVL':['Brashears Creek'],
                               'WFR':['Reading','Carthage'],
                               'WHL':['Perintown']}
-        self.OtherStations = {'BRR':['Calhoun','Lock 4 (Woodbury)'],'NRR':['Calhoun','Lock 4 (Woodbury)'],'RRR':['Calhoun','Lock 4 (Woodbury)'],'GRR':['Calhoun','Lock 4 (Woodbury)'],
+        self.OtherStations = {'BRR':['Calhoun'],'NRR':['Calhoun','Lock 4 (Woodbury)'],'RRR':['Calhoun','Lock 4 (Woodbury)'],'GRR':['Calhoun','Lock 4 (Woodbury)'],
                                      'CHL':['Terre Haute'],'CMR':['WhiteRiver@Petersburg'],'MNR':['Bedford'],
                                      'BVR':[],'BHR':[],'CBR':[],'CCK':[],'CFK':[],'CRR':[],'PRR':[],'TVL':['Shepherdsville'],'WFR':[],'WHL':[]}
         usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277446','CHL':'03340870','CMR':'03358900',
@@ -357,11 +358,13 @@ class gui:
 
 #Aniticipated uses the same gate lookup as the Elevation and Gate section to populate both the lables and entry objects
         anticipated_frame = self.build_anticipated_frame(newWindow)
-        for i, frame in enumerate([anticipated_frame]):
-            frame.grid(row=2, column=i, columnspan=2, padx=10, sticky='nsew')
-
 #River Station labels and entry objects are populated from the River_Stations Dictionary
-        self.r_station = []
+        river_stations_frame = self.build_river_stations_frame(newWindow)
+        for i, frame in enumerate([anticipated_frame, river_stations_frame]):
+            frame.grid(row=2, column=i*2, columnspan=2, padx=10, sticky='nsew')
+
+        
+
         elev_plot_frame = LabelFrame(newWindow, text='Lake', borderwidth=2, padx=10, pady=10)
         elev_plot_frame.grid(row=28, column=11, columnspan=2,rowspan=13, padx=10)
         g = build_plot(elev_plot_frame, self.Data[lkname], lkname+ ' Elevation')
@@ -371,23 +374,15 @@ class gui:
         cp_plot_frame = LabelFrame(newWindow, text='Control Points', borderwidth=2, padx=10, pady=10)
         for i in range(len(self.River_Stations[lkname])):
             station = self.River_Stations[lkname][i]
-            Label(newWindow,text= self.River_Stations[lkname][i]).grid(row=28+i,column=0,columnspan=2)
-            self.r_station.append(Entry(newWindow,width=8))
-            self.r_station[i].grid(row=28+i,column=2)
             g = build_plot(cp_plot_frame, self.Data[station], station)
             g.get_tk_widget().pack(side='left', padx=5)
-            extrapad = 0
         for i in range(len(self.OtherStations[self.lkname])):
             if self.OtherStations[self.lkname][i] not in self.River_Stations[lkname]:
                 station = self.OtherStations[lkname][i]
                 g = build_plot(cp_plot_frame, self.Data[station], station)
                 g.get_tk_widget().pack(side='left', padx=5)
-                extrapad+=1
-                mon,day,year = self.Date.split('/')
-                Label(newWindow,text= self.OtherStations[lkname][i]).grid(row=28+i+len(self.River_Stations[self.lkname]),column=0,columnspan=2)
-                Label(newWindow,text= str(self.Data[self.OtherStations[lkname][i]][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'])).grid(row=28+i+len(self.River_Stations[self.lkname]),column=2)
-        cp_plot_span = (len(self.River_Stations[lkname])+extrapad) * 2 +1
-        cp_plot_frame.grid(row=37, column=0, columnspan=cp_plot_span, padx=5)
+        cp_plot_span = (len(self.River_Stations[lkname])) * 2
+        cp_plot_frame.grid(row=37, column=4, columnspan=cp_plot_span, padx=5)
 #Remarks
         Label(newWindow,text='Remarks:').grid(row=34,column=0)
         self.remarks = Entry(newWindow,width=77)
@@ -578,6 +573,25 @@ class gui:
         for label, entry in gate_pairs:
             entry.bind('<FocusOut>', self.Validate)
         return anticipated_frame
+
+    def build_river_stations_frame(self, parent):
+        river_stations_frame = DlbLabelFrame(parent, "River Stations")
+        self.r_station = []
+        station_pairs = []
+        for station_name in self.River_Stations[self.lkname]:
+            entry = Entry(river_stations_frame, width=7)
+            station_pairs.append((station_name, entry))
+            self.r_station.append(entry)
+        mon,day,year = self.Date.split('/')
+        datetime_str = year + '-' + pad(mon,2,'0') + '-'+pad(day,2,'0') + ' 06:00'
+        for station_name in self.OtherStations[self.lkname]:
+            stage = str(self.Data[station_name][datetime_str])
+            stage_label = Label(river_stations_frame, text=stage)
+            station_pairs.append((station_name, stage_label))
+        self.layout_entry_grid(river_stations_frame, station_pairs)
+        return river_stations_frame
+        
+
         
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
