@@ -18,12 +18,12 @@ import pandas as pd
 pd.plotting.register_matplotlib_converters()
 
 class EntryLabel(Message):
-    #TODO: Fiddle with aspect for labels
     def __init__(self, parent, text, **kwargs):
         super().__init__(
             parent,
             text=text,
             justify=CENTER,
+            aspect=200,
             **kwargs,
         )
 
@@ -470,7 +470,11 @@ class gui:
 
     def layout_entry_grid(self, parent: LabelFrame, entry_pairs):
         for i, (label_text, entry) in enumerate(entry_pairs):
-            EntryLabel(parent, label_text).grid(row=0, column=i, sticky="n")
+            if ' ' not in label_text:
+                label = Label(parent, text=label_text, justify=CENTER)
+            else:
+                label = EntryLabel(parent, label_text)
+            label.grid(row=0, column=i, sticky="n")
             entry.grid(row=1, column=i, sticky="s")
             parent.columnconfigure(i, minsize=50, weight=1)
         parent.rowconfigure(0, weight=1)
@@ -598,10 +602,6 @@ class gui:
         submit_button = Button(header_frame, text="Submit", command=self.Submit)
         submit_button.config(width=25, height=4, bg='light blue')
         submit_button.grid(row=2, column=0, pady=(10, 10))
-        # components = [project_label, date_dropdown, submit_button]
-        # for i, component in enumerate(components):
-        #     component.grid(row=i, column=0)
-        #     header_frame.rowconfigure(i, weight=1)
         header_frame.columnconfigure(0, weight=1)
         return header_frame
 
