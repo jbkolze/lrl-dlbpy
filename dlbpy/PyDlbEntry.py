@@ -384,9 +384,8 @@ class gui:
         cp_plot_span = (len(self.River_Stations[lkname])) * 2
         cp_plot_frame.grid(row=37, column=4, columnspan=cp_plot_span, padx=5)
 #Remarks
-        Label(newWindow,text='Remarks:').grid(row=34,column=0)
-        self.remarks = Entry(newWindow,width=77)
-        self.remarks.grid(row=34,column=1,columnspan=5)
+        remarks_frame = self.build_remarks_frame(newWindow)
+        remarks_frame.grid(row=3, column=0, columnspan=4, padx=10, sticky='nsew')
 # Submit Button and information label
         submit = Button(newWindow,text="Submit",command = self.Submit)
         submit.grid(row=34,column=7,columnspan=2,rowspan=2)
@@ -590,8 +589,14 @@ class gui:
             station_pairs.append((station_name, stage_label))
         self.layout_entry_grid(river_stations_frame, station_pairs)
         return river_stations_frame
-        
-
+    
+    def build_remarks_frame(self, parent):
+        remarks_frame = DlbLabelFrame(parent, "Remarks")
+        remarks_label = Label(remarks_frame, text="Remarks:")
+        remarks_label.grid(row=0,column=0)
+        self.remarks = Entry(remarks_frame, width=77)
+        self.remarks.grid(row=0, column=1)
+        return remarks_frame
         
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
