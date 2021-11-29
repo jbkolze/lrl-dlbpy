@@ -338,15 +338,9 @@ class gui:
         self.infobox.grid(row=4,column=12,rowspan=2,columnspan=3)
         self.recheck = False
         self.flow = ratings.GateRatingSet(self.lkname)
-        Label(newWindow,text = lkname,font=("Arial", 25)).grid(row = 0, column = 12, rowspan=2)
         
         gate_settings_frame = self.build_gate_settings_frame(newWindow)
         gate_settings_frame.grid(row=0, column=0, columnspan=4, padx=10)
-
-        DateDropDown = OptionMenu(newWindow, self.TkDate, *self.Entry_dates)
-        DateDropDown.grid(row = 2, column = 12,rowspan=2)
-        Button(newWindow,text="Add Gate Change",command = self.AddGateRow).grid(row=5,column=12)
-        Button(newWindow,text="Remove Gate Change",command = self.RemoveGateRow).grid(row=6,column=12)
         
         pool_change_frame = self.build_pool_change_frame(newWindow)
         precip_frame = self.build_precip_frame(newWindow)
@@ -375,15 +369,11 @@ class gui:
 
         cp_plots_frame = self.build_cp_plots_frame(newWindow)
         cp_plots_frame.grid(row=4, column=0, columnspan=4, padx=10, sticky='nsew')
-# Submit Button and information label
-        submit = Button(newWindow,text="Submit",command = self.Submit)
-        submit.grid(row=34,column=7,columnspan=2,rowspan=2)
-        submit.config(width=25)
-        submit.config(height=4)
-        submit.config(bg='light blue')
-        #Label(newWindow,text=lkname+' Elev').grid(row=7,column=12,columnspan=2)
+
+        header_frame = self.build_header_frame(newWindow)
+        header_frame.grid(row=0, column=4, rowspan=2, padx=10, sticky='nsew')
+
         self.Load()
-        #self.root.wm_attributes('-fullscreen', 1)
 
     def build_gate_settings_frame(self, parent):
         lkname = self.lkname
@@ -597,6 +587,20 @@ class gui:
         cp_plots_frame.rowconfigure(0, weight=1)
         return cp_plots_frame
 
+    def build_header_frame(self, parent):
+        header_frame = Frame(parent, padx=10, pady=10)
+        project_label = Label(header_frame, text=self.lkname, font=("Arial", 25))
+        date_dropdown = OptionMenu(header_frame, self.TkDate, *self.Entry_dates)
+        add_gate_button = Button(header_frame, text="Add Gate Change", command=self.AddGateRow)
+        remove_gate_button = Button(header_frame, text="Remove Gate Change",command=self.RemoveGateRow)
+        submit_button = Button(header_frame, text="Submit", command=self.Submit)
+        submit_button.config(width=25, height=4, bg='light blue')
+        components = [project_label, date_dropdown, add_gate_button, remove_gate_button, submit_button]
+        for i, component in enumerate(components):
+            component.grid(row=i, column=0)
+            header_frame.rowconfigure(i, weight=1)
+        header_frame.columnconfigure(0, weight=1)
+        return header_frame
         
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
