@@ -340,7 +340,7 @@ class gui:
         self.flow = ratings.GateRatingSet(self.lkname)
         
         gate_settings_frame = self.build_gate_settings_frame(newWindow)
-        gate_settings_frame.grid(row=0, column=0, columnspan=4, padx=10)
+        gate_settings_frame.grid(row=0, column=0, columnspan=4, padx=10, pady=5)
         
         pool_change_frame = self.build_pool_change_frame(newWindow)
         precip_frame = self.build_precip_frame(newWindow)
@@ -348,25 +348,23 @@ class gui:
         weather_frame.grid_propagate(0)  # Fixed width to prevent GUI "bouncing"
         temperature_frame = self.build_temperature_frame(newWindow)
         for i, frame in enumerate([pool_change_frame, precip_frame, weather_frame, temperature_frame]):
-            frame.grid(row=1, column=i, padx=10, sticky='nsew')
+            frame.grid(row=1, column=i, padx=10, pady=5, sticky='nsew')
 
-#Aniticipated uses the same gate lookup as the Elevation and Gate section to populate both the lables and entry objects
         anticipated_frame = self.build_anticipated_frame(newWindow)
-#River Station labels and entry objects are populated from the River_Stations Dictionary
         river_stations_frame = self.build_river_stations_frame(newWindow)
         for i, frame in enumerate([anticipated_frame, river_stations_frame]):
-            frame.grid(row=2, column=i*2, columnspan=2, padx=10, sticky='nsew')  
-#Remarks
+            frame.grid(row=2, column=i*2, columnspan=2, padx=10, pady=5, sticky='nsew')  
+
         remarks_frame = self.build_remarks_frame(newWindow)
-        remarks_frame.grid(row=3, column=0, columnspan=4, padx=10, sticky='nsew')
+        remarks_frame.grid(row=3, column=0, columnspan=4, padx=10, pady=5, sticky='nsew')
 
         cp_plots_frame = self.build_cp_plots_frame(newWindow)
-        cp_plots_frame.grid(row=4, column=0, columnspan=4, padx=10, sticky='nsew')
+        cp_plots_frame.grid(row=4, column=0, columnspan=4, padx=10, pady=5, sticky='nsew')
 
         header_frame = self.build_header_frame(newWindow)
         header_frame.grid(row=0, column=4, padx=10, sticky='nsew')
         project_plots_frame = self.build_project_plots_frame(newWindow)
-        project_plots_frame.grid(row=1, column=4, rowspan=4, padx=10, sticky='nsew')
+        project_plots_frame.grid(row=1, column=4, rowspan=4, padx=10, pady=5, sticky='nsew')
 
         self.Load()
 
@@ -413,6 +411,13 @@ class gui:
                 self.gates[j][i].bind('<FocusOut>',self.Validate)
             self.FlowL.append(Label(gate_settings_frame))
         Label(gate_settings_frame,text="Outflow (cfs)").grid(row=0,column=j+5)
+        self.gate_buttons_frame = Frame(gate_settings_frame)
+        add_gate_button = Button(self.gate_buttons_frame, text="Add Gate Change", command=self.AddGateRow)
+        remove_gate_button = Button(self.gate_buttons_frame, text="Remove Gate Change",command=self.RemoveGateRow)
+        add_gate_button.grid(row=0, column=0, padx=(20, 0))
+        remove_gate_button.grid(row=0, column=1, padx=(20, 0))
+        # for i in range(2):
+        #     self.gate_buttons_frame.columnconfigure(i, weight=1)
         self.numrows = 0
         for i in range(4):
             self.AddGateRow()
@@ -427,6 +432,7 @@ class gui:
             for j in range(len( self.Gate_configuration[self.lkname])):
                 self.gates[j][self.numrows].grid(row=self.numrows+1,column=j+4)
             self.FlowL[self.numrows].grid(row=self.numrows+1,column=j+5)
+            self.gate_buttons_frame.grid(row=self.numrows+2, column=0, columnspan=j+6, pady=(10, 0), sticky='nsew')
             if self.numrows >= 4 and self.Validating:
                 self.TimeF[self.numrows].focus_set()
             self.numrows += 1
@@ -438,8 +444,8 @@ class gui:
             ))
             
     def RemoveGateRow(self):
-        if self.numrows >= 4:
-            self.numrows -= 10
+        if self.numrows > 4:
+            self.numrows -= 1
             self.DateF[self.numrows].configure(text='')
             self.TimeF[self.numrows].delete(0,"end")
             self.ElevF[self.numrows].delete(0,"end")
@@ -452,6 +458,7 @@ class gui:
                 self.gates[j][self.numrows].delete(0,"end")
                 self.gates[j][self.numrows].grid_remove()
             self.FlowL[self.numrows].grid_remove()
+            self.gate_buttons_frame.grid(row=self.numrows+2, column=0, columnspan=j+6, pady=(10, 0), sticky='nsew')
             if self.numrows >= 4 and self.Validating:
                 self.TimeF[self.numrows].focus_set()
             self.gate_rows = list(zip(
@@ -585,15 +592,16 @@ class gui:
     def build_header_frame(self, parent):
         header_frame = Frame(parent, padx=10, pady=10)
         project_label = Label(header_frame, text=self.lkname, font=("Arial", 25))
+        project_label.grid(row=0, column=0, pady=(20, 10))
         date_dropdown = OptionMenu(header_frame, self.TkDate, *self.Entry_dates)
-        add_gate_button = Button(header_frame, text="Add Gate Change", command=self.AddGateRow)
-        remove_gate_button = Button(header_frame, text="Remove Gate Change",command=self.RemoveGateRow)
+        date_dropdown.grid(row=1, column=0, pady=(10, 10))
         submit_button = Button(header_frame, text="Submit", command=self.Submit)
         submit_button.config(width=25, height=4, bg='light blue')
-        components = [project_label, date_dropdown, add_gate_button, remove_gate_button, submit_button]
-        for i, component in enumerate(components):
-            component.grid(row=i, column=0)
-            header_frame.rowconfigure(i, weight=1)
+        submit_button.grid(row=2, column=0, pady=(10, 10))
+        # components = [project_label, date_dropdown, submit_button]
+        # for i, component in enumerate(components):
+        #     component.grid(row=i, column=0)
+        #     header_frame.rowconfigure(i, weight=1)
         header_frame.columnconfigure(0, weight=1)
         return header_frame
 
