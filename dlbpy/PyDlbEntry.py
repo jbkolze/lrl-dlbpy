@@ -356,13 +356,6 @@ class gui:
         river_stations_frame = self.build_river_stations_frame(newWindow)
         for i, frame in enumerate([anticipated_frame, river_stations_frame]):
             frame.grid(row=2, column=i*2, columnspan=2, padx=10, sticky='nsew')  
-
-        elev_plot_frame = LabelFrame(newWindow, text='Lake', borderwidth=2, padx=10, pady=10)
-        elev_plot_frame.grid(row=28, column=11, columnspan=2,rowspan=13, padx=10)
-        g = build_plot(elev_plot_frame, self.Data[lkname], lkname+ ' Elevation')
-        g.get_tk_widget().pack(side='top', padx=5)
-        g = build_plot(elev_plot_frame, self.Data['Tailwater'], 'Tailwater')
-        g.get_tk_widget().pack(side='right', padx=5)
 #Remarks
         remarks_frame = self.build_remarks_frame(newWindow)
         remarks_frame.grid(row=3, column=0, columnspan=4, padx=10, sticky='nsew')
@@ -371,7 +364,9 @@ class gui:
         cp_plots_frame.grid(row=4, column=0, columnspan=4, padx=10, sticky='nsew')
 
         header_frame = self.build_header_frame(newWindow)
-        header_frame.grid(row=0, column=4, rowspan=2, padx=10, sticky='nsew')
+        header_frame.grid(row=0, column=4, padx=10, sticky='nsew')
+        project_plots_frame = self.build_project_plots_frame(newWindow)
+        project_plots_frame.grid(row=1, column=4, rowspan=4, padx=10, sticky='nsew')
 
         self.Load()
 
@@ -601,6 +596,16 @@ class gui:
             header_frame.rowconfigure(i, weight=1)
         header_frame.columnconfigure(0, weight=1)
         return header_frame
+
+    def build_project_plots_frame(self, parent):
+        project_plots_frame = DlbLabelFrame(parent, "Project Plots")
+        elev_plot = build_plot(project_plots_frame, self.Data[self.lkname], f'{self.lkname} Pool Elevation')
+        tw_plot = build_plot(project_plots_frame, self.Data['Tailwater'], f'{self.lkname} Tailwater')
+        for i, plot in enumerate([elev_plot, tw_plot]):
+            plot.get_tk_widget().grid(row=i, column=0)
+            project_plots_frame.rowconfigure(i, weight=1)
+        project_plots_frame.columnconfigure(0, weight=1)
+        return project_plots_frame
         
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
