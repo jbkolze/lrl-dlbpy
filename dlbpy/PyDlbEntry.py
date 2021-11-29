@@ -361,31 +361,20 @@ class gui:
 #River Station labels and entry objects are populated from the River_Stations Dictionary
         river_stations_frame = self.build_river_stations_frame(newWindow)
         for i, frame in enumerate([anticipated_frame, river_stations_frame]):
-            frame.grid(row=2, column=i*2, columnspan=2, padx=10, sticky='nsew')
-
-        
+            frame.grid(row=2, column=i*2, columnspan=2, padx=10, sticky='nsew')  
 
         elev_plot_frame = LabelFrame(newWindow, text='Lake', borderwidth=2, padx=10, pady=10)
         elev_plot_frame.grid(row=28, column=11, columnspan=2,rowspan=13, padx=10)
         g = build_plot(elev_plot_frame, self.Data[lkname], lkname+ ' Elevation')
         g.get_tk_widget().pack(side='top', padx=5)
         g = build_plot(elev_plot_frame, self.Data['Tailwater'], 'Tailwater')
-        g.get_tk_widget().pack(side='bottom', padx=5)
-        cp_plot_frame = LabelFrame(newWindow, text='Control Points', borderwidth=2, padx=10, pady=10)
-        for i in range(len(self.River_Stations[lkname])):
-            station = self.River_Stations[lkname][i]
-            g = build_plot(cp_plot_frame, self.Data[station], station)
-            g.get_tk_widget().pack(side='left', padx=5)
-        for i in range(len(self.OtherStations[self.lkname])):
-            if self.OtherStations[self.lkname][i] not in self.River_Stations[lkname]:
-                station = self.OtherStations[lkname][i]
-                g = build_plot(cp_plot_frame, self.Data[station], station)
-                g.get_tk_widget().pack(side='left', padx=5)
-        cp_plot_span = (len(self.River_Stations[lkname])) * 2
-        cp_plot_frame.grid(row=37, column=4, columnspan=cp_plot_span, padx=5)
+        g.get_tk_widget().pack(side='right', padx=5)
 #Remarks
         remarks_frame = self.build_remarks_frame(newWindow)
         remarks_frame.grid(row=3, column=0, columnspan=4, padx=10, sticky='nsew')
+
+        cp_plots_frame = self.build_cp_plots_frame(newWindow)
+        cp_plots_frame.grid(row=4, column=0, columnspan=4, padx=10, sticky='nsew')
 # Submit Button and information label
         submit = Button(newWindow,text="Submit",command = self.Submit)
         submit.grid(row=34,column=7,columnspan=2,rowspan=2)
@@ -597,6 +586,17 @@ class gui:
         self.remarks = Entry(remarks_frame, width=77)
         self.remarks.grid(row=0, column=1)
         return remarks_frame
+
+    def build_cp_plots_frame(self, parent):
+        cp_plots_frame = DlbLabelFrame(parent, "Control Point Plots")
+        stations = self.River_Stations[self.lkname] + self.OtherStations[self.lkname]
+        for i, station in enumerate(stations):
+            plot = build_plot(cp_plots_frame, self.Data[station], station)
+            plot.get_tk_widget().grid(row=0, column=i)
+            cp_plots_frame.columnconfigure(i, weight=1)
+        cp_plots_frame.rowconfigure(0, weight=1)
+        return cp_plots_frame
+
         
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
