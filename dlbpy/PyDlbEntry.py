@@ -330,7 +330,6 @@ class gui:
                               'WFR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1)],
                               'WHL':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',5),('Bypass 2 Level','L2',5)]}
 
-
         self.Validating = False
         newWindow = Frame(self.root)
         newWindow.pack()
@@ -340,7 +339,7 @@ class gui:
         self.flow = ratings.GateRatingSet(self.lkname)
         
         gate_settings_frame = self.build_gate_settings_frame(newWindow)
-        gate_settings_frame.grid(row=0, column=0, columnspan=4, padx=10, pady=5)
+        gate_settings_frame.grid(row=0, column=0, columnspan=4, padx=10, pady=5, sticky='nsew')
         
         pool_change_frame = self.build_pool_change_frame(newWindow)
         precip_frame = self.build_precip_frame(newWindow)
@@ -400,24 +399,26 @@ class gui:
             self.gates.append([])
         for i in range(20):
             self.DateF.append(Label(gate_settings_frame))
-            self.TimeF.append(Entry(gate_settings_frame))
+            self.TimeF.append(Entry(gate_settings_frame, width=10))
             self.TimeF[i].bind('<FocusOut>',self.Validate_time)
-            self.ElevF.append(Entry(gate_settings_frame))
+            self.ElevF.append(Entry(gate_settings_frame, width=10))
             self.ElevF[i].bind('<FocusOut>',self.Validate)
-            self.TailWaterF.append(Entry(gate_settings_frame))
+            self.TailWaterF.append(Entry(gate_settings_frame, width=10))
             self.TailWaterF[i].bind('<FocusOut>',self.Validate)
             for j in range(len( self.Gate_configuration[lkname])):
-                self.gates[j].append(Entry(gate_settings_frame))
+                self.gates[j].append(Entry(gate_settings_frame, width=10))
                 self.gates[j][i].bind('<FocusOut>',self.Validate)
             self.FlowL.append(Label(gate_settings_frame))
         Label(gate_settings_frame,text="Outflow (cfs)").grid(row=0,column=j+5)
+        for i in range(j+6):
+            gate_settings_frame.columnconfigure(i, minsize=50, weight=1)
+
         self.gate_buttons_frame = Frame(gate_settings_frame)
         add_gate_button = Button(self.gate_buttons_frame, text="Add Gate Change", command=self.AddGateRow)
         remove_gate_button = Button(self.gate_buttons_frame, text="Remove Gate Change",command=self.RemoveGateRow)
         add_gate_button.grid(row=0, column=0, padx=(20, 0))
         remove_gate_button.grid(row=0, column=1, padx=(20, 0))
-        # for i in range(2):
-        #     self.gate_buttons_frame.columnconfigure(i, weight=1)
+
         self.numrows = 0
         for i in range(4):
             self.AddGateRow()
@@ -588,7 +589,7 @@ class gui:
         stations = self.River_Stations[self.lkname] + self.OtherStations[self.lkname]
         for i, station in enumerate(stations):
             plot = build_plot(cp_plots_frame, self.Data[station], station)
-            plot.get_tk_widget().grid(row=0, column=i)
+            plot.get_tk_widget().grid(row=0, column=i, padx=5)
             cp_plots_frame.columnconfigure(i, weight=1)
         cp_plots_frame.rowconfigure(0, weight=1)
         return cp_plots_frame
