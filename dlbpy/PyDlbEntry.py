@@ -21,13 +21,18 @@ def build_plot(parent, data, title):
     sns.set()
     sns.set_context("paper")
     sns.set_style("whitegrid")
-    f, ax = plt.subplots(1, 1, figsize=(2.5, 2.5), dpi=100, constrained_layout=True)
+    f, ax = plt.subplots(1, 1, figsize=(2, 2), dpi=100, constrained_layout=True)
     times = [datetime.strptime(x, '%Y-%m-%d %H:%M') for x in list(data.keys())]
     values = list(data.values())
     sns.lineplot(times, values, ax=ax)
     sns.despine(f, ax)
     plt.xticks(rotation=90)
     plt.title(title)
+    Y,M,D,h,m,s,wd,yd,dst = time.localtime(time.time()-7*24*60*60)
+    X1 = datetime(Y,M,D,0,0)
+    Y,M,D,h,m,s,wd,yd,dst = time.localtime()
+    X2 = datetime(Y,M,D,6,0)
+    plt.xlim([X1,X2])
     ax.xaxis.set_major_locator(DayLocator())
     ax.xaxis.set_major_formatter(DateFormatter('%b %d'))
     ax.yaxis.set_major_formatter(FormatStrFormatter('%.2f'))
@@ -131,7 +136,9 @@ class gui:
                       'Taylorsville':'TVL','WestFork':'WFR','W H Harsha':'WHL'}
         self.root = Tk()
         self.root.title('DLB Input Program')
-        self.LaunchCanvas = Canvas(self.root, height=500, width= 500, bg="white")
+        self.LaunchCanvas = Canvas(self.root)
+        w, h = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
+        self.root.geometry("%dx%d+-10+0" % (w, h)) 
         self.LaunchCanvas.pack()
         self.tkvar = StringVar(self.root)
         self.tkvar.set('Choose Lake')
@@ -148,7 +155,7 @@ class gui:
         Launch.config(height=5)
         Launch.config(bg='light blue')
         Launch.grid(row=9, column =0, rowspan=4, columnspan=4)
-        self.root.state('zoomed')
+
         self.root.mainloop()
     def getData(self):
         self.Data = {}
@@ -176,7 +183,7 @@ class gui:
         self.OtherStations = {'BRR':['Calhoun','Lock 4 (Woodbury)'],'NRR':['Calhoun','Lock 4 (Woodbury)'],'RRR':['Calhoun','Lock 4 (Woodbury)'],'GRR':['Calhoun','Lock 4 (Woodbury)'],
                                      'CHL':['Terre Haute'],'CMR':['WhiteRiver@Petersburg'],'MNR':['Bedford'],
                                      'BVR':[],'BHR':[],'CBR':[],'CCK':[],'CFK':[],'CRR':[],'PRR':[],'TVL':['Shepherdsville'],'WFR':[],'WHL':[]}
-        usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277450','CHL':'03340870','CMR':'03358900',
+        usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277446','CHL':'03340870','CMR':'03358900',
                'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','RRR':'03318005','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
                'Hyden':'03280612','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
                'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
@@ -341,15 +348,15 @@ class gui:
         for j in range(len( self.Gate_configuration[lkname])):
             self.gates.append([])
         for i in range(20):
-            self.DateF.append(Label(newWindow))
-            self.TimeF.append(Entry(newWindow))
+            self.DateF.append(Label(newWindow,width=8))
+            self.TimeF.append(Entry(newWindow,width=8))
             self.TimeF[i].bind('<FocusOut>',self.Validate_time)
-            self.ElevF.append(Entry(newWindow))
+            self.ElevF.append(Entry(newWindow,width=8))
             self.ElevF[i].bind('<FocusOut>',self.Validate)
-            self.TailWaterF.append(Entry(newWindow))
+            self.TailWaterF.append(Entry(newWindow,width=8))
             self.TailWaterF[i].bind('<FocusOut>',self.Validate)
             for j in range(len( self.Gate_configuration[lkname])):
-                self.gates[j].append(Entry(newWindow))
+                self.gates[j].append(Entry(newWindow,width=8))
                 self.gates[j][i].bind('<FocusOut>',self.Validate)
             self.FlowL.append(Label(newWindow))
         self.gate_rows = list(zip(
@@ -360,7 +367,8 @@ class gui:
             ))
         Label(newWindow,text="Outflow (cfs)").grid(row=0,column=j+5)
         self.numrows = 0
-        Button(newWindow,text="Add Gate Change",command = self.AddGateRow).grid(row=6,column=12)
+        Button(newWindow,text="Add Gate Change",command = self.AddGateRow).grid(row=5,column=12)
+        Button(newWindow,text="Remove Gate Change",command = self.RemoveGateRow).grid(row=6,column=12)
         for i in range(4):
             self.AddGateRow()
 #Weather is standard for all lakes
@@ -372,17 +380,17 @@ class gui:
         Label(newWindow,text="Precipitation").grid(row=21,column=2,columnspan=3)
         Label(newWindow,text="Amount").grid(row=22,column=2)
         Label(newWindow,text="Last 24hrs").grid(row=23,column=2)
-        self.precip = Entry(newWindow)
+        self.precip = Entry(newWindow,width=8)
         self.precip.grid(row=24,column=2)
         self.precip.bind('<FocusOut>',self.Validate)
         Label(newWindow,text="Snow On").grid(row=22,column=3)
         Label(newWindow,text="Ground").grid(row=23,column=3)
-        self.snow = Entry(newWindow)
+        self.snow = Entry(newWindow,width=8)
         self.snow.grid(row=24,column=3)
         self.snow.bind('<FocusOut>',self.Validate)
         Label(newWindow,text="Snow Water").grid(row=22,column=4)
         Label(newWindow,text="Content").grid(row=23,column=4)
-        self.swe = Entry(newWindow)
+        self.swe = Entry(newWindow,width=8)
         self.swe.grid(row=24,column=4)
         self.swe.bind('<FocusOut>',self.Validate)
         Label(newWindow,text="Present Weather").grid(row=23,column=5,columnspan=2)
@@ -397,7 +405,7 @@ class gui:
         Label(newWindow,text="Max").grid(row=23,column=8)
         Label(newWindow,text="Tailwater").grid(row=22,column=10)
         Label(newWindow,text="Temp Degrees C").grid(row=23,column=10)
-        self.curTemp,self.maxTemp,self.minTemp,self.tailTemp = Entry(newWindow),Entry(newWindow),Entry(newWindow),Entry(newWindow)
+        self.curTemp,self.maxTemp,self.minTemp,self.tailTemp = Entry(newWindow,width=8),Entry(newWindow,width=8),Entry(newWindow,width=8),Entry(newWindow,width=8)
         self.curTemp.grid(row=24,column=7)
         self.curTemp.bind('<FocusOut>',self.Validate)
         self.maxTemp.grid(row=24,column=8)
@@ -415,7 +423,7 @@ class gui:
         Label(newWindow,text='Anticipated Flow').grid(row=r,column=c)
         self.a_gates = []
         for j in range(len( self.Gate_configuration[lkname])):
-            self.a_gates.append(Entry(newWindow))
+            self.a_gates.append(Entry(newWindow,width=8))
             self.a_gates[j].grid(row=27,column=j)
             self.a_gates[j].bind('<FocusOut>',self.Validate)
         self.A_FlowL = Label(newWindow)
@@ -423,16 +431,16 @@ class gui:
 #River Station labels and entry objects are populated from the River_Stations Dictionary
         self.r_station = []
         elev_plot_frame = LabelFrame(newWindow, text='Lake', borderwidth=2, padx=10, pady=10)
-        elev_plot_frame.grid(row=37, column=0, columnspan=4, padx=10)
+        elev_plot_frame.grid(row=28, column=11, columnspan=2,rowspan=13, padx=10)
         g = build_plot(elev_plot_frame, self.Data[lkname], lkname+ ' Elevation')
-        g.get_tk_widget().pack(side='left', padx=5)
+        g.get_tk_widget().pack(side='top', padx=5)
         g = build_plot(elev_plot_frame, self.Data['Tailwater'], 'Tailwater')
-        g.get_tk_widget().pack(side='right', padx=5)
+        g.get_tk_widget().pack(side='bottom', padx=5)
         cp_plot_frame = LabelFrame(newWindow, text='Control Points', borderwidth=2, padx=10, pady=10)
         for i in range(len(self.River_Stations[lkname])):
             station = self.River_Stations[lkname][i]
             Label(newWindow,text= self.River_Stations[lkname][i]).grid(row=28+i,column=0,columnspan=2)
-            self.r_station.append(Entry(newWindow))
+            self.r_station.append(Entry(newWindow,width=8))
             self.r_station[i].grid(row=28+i,column=2)
             g = build_plot(cp_plot_frame, self.Data[station], station)
             g.get_tk_widget().pack(side='left', padx=5)
@@ -446,20 +454,21 @@ class gui:
                 mon,day,year = self.Date.split('/')
                 Label(newWindow,text= self.OtherStations[lkname][i]).grid(row=28+i+len(self.River_Stations[self.lkname]),column=0,columnspan=2)
                 Label(newWindow,text= str(self.Data[self.OtherStations[lkname][i]][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'])).grid(row=28+i+len(self.River_Stations[self.lkname]),column=2)
-        cp_plot_span = (len(self.River_Stations[lkname])+extrapad) * 2
-        cp_plot_frame.grid(row=37, column=4, columnspan=cp_plot_span, padx=5)
+        cp_plot_span = (len(self.River_Stations[lkname])+extrapad) * 2 +1
+        cp_plot_frame.grid(row=37, column=0, columnspan=cp_plot_span, padx=5)
 #Remarks
         Label(newWindow,text='Remarks:').grid(row=34,column=0)
         self.remarks = Entry(newWindow,width=77)
         self.remarks.grid(row=34,column=1,columnspan=5)
 # Submit Button and information label
         submit = Button(newWindow,text="Submit",command = self.Submit)
-        submit.grid(row=34,column=8)
+        submit.grid(row=34,column=7,columnspan=2,rowspan=2)
+        submit.config(width=25)
+        submit.config(height=4)
+        submit.config(bg='light blue')
         #Label(newWindow,text=lkname+' Elev').grid(row=7,column=12,columnspan=2)
-        self.root.focus_force()
-        self.root.update_idletasks()
         self.Load()
-
+        #self.root.wm_attributes('-fullscreen', 1)
 
         
     def AddGateRow(self):
@@ -474,6 +483,25 @@ class gui:
             if self.numrows >= 4 and self.Validating:
                 self.TimeF[self.numrows].focus_set()
             self.numrows += 1
+    def RemoveGateRow(self):
+        print (self.numrows)
+        if self.numrows >= 4:
+            self.numrows -= 10
+            self.DateF[self.numrows].configure(text='')
+            self.TimeF[self.numrows].delete(0,"end")
+            self.ElevF[self.numrows].delete(0,"end")
+            self.FlowL[self.numrows].grid_remove()
+            self.DateF[self.numrows].grid_remove()
+            self.TimeF[self.numrows].grid_remove()
+            self.ElevF[self.numrows].grid_remove()
+            self.TailWaterF[self.numrows].grid_remove()
+            for j in range(len( self.Gate_configuration[self.lkname])):
+                self.gates[j][self.numrows].delete(0,"end")
+                self.gates[j][self.numrows].grid_remove()
+            self.FlowL[self.numrows].grid_remove()
+            if self.numrows >= 4 and self.Validating:
+                self.TimeF[self.numrows].focus_set()
+            
     def Submit(self):
         """Submit first runs the find_submit_errors function and displays the error if one is found.
         If no errors it itterates through the entry objects to pruduce the output file.
@@ -491,7 +519,7 @@ class gui:
         if err:
             mb.showwarning("Submission Halted Due to Error",err)
             return False
-        year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime()
+        year,month,day,hour,Min,sec,wd,yd,dst = time.localtime()
         Modtime = str(year)+pad(str(month),2,'0')+pad(str(day),2,'0')+pad(str(hour),2,'0')+pad(str(Min),2,'0')
         basin = GetBasin(self.lkname)
         f = open('o:/ED/PUBLIC/DLB/OUTPUT/'+self.lkname+'pydlb.txt','w')
@@ -567,9 +595,11 @@ class gui:
             str: A string containing an error message listing some or all of the
                 missing fields, or a blank string if no required fields are missing.
         """
+        i = 0
         for row in self.gate_rows[:4]:  # 1200, 1800, 2400, and 0600
             if not all(entry.get() for entry in row):
-                return f'Missing value(s) in gate table at {row[1].get()} on {row[0].get()}'
+                return f'Missing value(s) in gate table at {self.DateF[i]["text"]} on {row[1].get()}\nAll gate settings must be filled in.\nPlease fill in missing setting for this row.'
+                i += 1
         required_fields = [
             ["24-Hour Pool Change", self.change],
             ["24-Hour Precip", self.precip],
@@ -659,12 +689,14 @@ class gui:
         Finally if the value cannot be evaluated because it isn't the right datatype an error message indicating the value is not a number"""
         if self.Validating:
             try:
+                Name = ""
                 stop = True
                 index = -901
                 if not (event.widget.get() == '') and not self.recheck:
                     if event.widget in self.ElevF:
                         min_val, max_val = self.Elev_Limits[self.lkname]
                         index = self.ElevF.index(event.widget)
+                        Name = "Elevation @ " + self.TimeF[index].get()
                     if event.widget in self.TailWaterF:
                         min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
                     for i in range(len(self.Gate_configuration[self.lkname])):
@@ -672,20 +704,21 @@ class gui:
                             if self.lkname == 'PRR':
                                 min_val,max_val=float(self.Gate_configuration[self.lkname][i][2]),float(self.Gate_configuration[self.lkname][i][3])
                                 if self.Gate_configuration[self.lkname][i][1][0] == 'L':
-                                    if int(self.event.widget.get()) == 0:
+                                    if int(event.widget.get()) == 0:
                                         return
                             else:
                                 min_val,max_val = 0,float(self.Gate_configuration[self.lkname][i][2])
                             index = self.gates[i].index(event.widget)
+                            Name = self.Gate_configuration[self.lkname][i][1] + " @ " + self.TimeF[index].get()
                             if self.Gate_configuration[self.lkname][i][1][0] == 'M' and self.lkname not in ['CMR','CHL']:
-                                if float(event.widget.get()) > 0:
-                                    for j in range(len(self.Gate_configuration[self.lkname])):
-                                        try:
+                                try:
+                                    if float(event.widget.get()) > 0:
+                                        for j in range(len(self.Gate_configuration[self.lkname])):
                                             if self.Gate_configuration[self.lkname][j][1][0] == 'B' and float(self.gates[j][index].get()) > 0:
                                                 self.recheck = True
                                                 mb.showwarning("Odd Gate Setting","It's Unusal to have Main Gate and Bypasses both open")
-                                        except:
-                                            pass
+                                except:
+                                    pass
                             if self.Gate_configuration[self.lkname][i][1][0] == 'B' and self.lkname != 'TVL':
                                 if float(event.widget.get()) == 0.0:
                                     for j in range(len(self.Gate_configuration[self.lkname])):
@@ -704,7 +737,7 @@ class gui:
                                     int(event.widget.get())
                                 except:
                                     self.recheck = True
-                                    mb.showwarning("Entry Not Valid","Must be an integer")
+                                    mb.showwarning(Name + " Entry Not Valid","Must be an integer")
                                     event.widget.focus_set()
                                     return
                         if event.widget == self.a_gates[i]:
@@ -713,6 +746,7 @@ class gui:
                                 min_val,max_val=float(self.Gate_configuration[self.lkname][i][2]),float(self.Gate_configuration[self.lkname][i][3])
                             else:
                                 min_val,max_val = 0,float(self.Gate_configuration[self.lkname][i][2])
+                                Name = self.Gate_configuration[self.lkname][i][1] + " Anticipated"
                             if self.Gate_configuration[self.lkname][i][1][0] == 'B' and self.lkname != 'TVL':
                                 if float(event.widget.get()) == 0.0:
                                     for j in range(len(self.Gate_configuration[self.lkname])):
@@ -725,26 +759,40 @@ class gui:
                                     int(event.widget.get())
                                 except:
                                     self.recheck = True
-                                    mb.showwarning("Entry Not Valid","Must be an integer")
+                                    mb.showwarning(Name + " Not Valid","Must be an integer")
                                     event.widget.focus_set()
                                     return
                     if event.widget in [self.curTemp,self.minTemp,self.maxTemp]:
                         min_val, max_val = -50,130
+                    if event.widget == self.curTemp:
+                        Name = 'Current Air Temp'
+                    if event.widget == self.minTemp:
+                        Name = 'Min Air Temp'
+                    if event.widget == self.maxTemp:
+                        Name = 'Max Air Temp'
                     if event.widget == self.tailTemp:
+                        Name = "Tail Temp"
                         min_val, max_val = 0,50
                     if event.widget in [self.precip,self.snow,self.swe]:
                         min_val, max_val = 0,25
                         stop = False
+                    if event.widget == self.precip:
+                        Name = "Precipitation"
+                    if event.widget == self.snow:
+                        Name = "Snow"
+                    if event.widget == self.swe:
+                        Name = "Snow Water Equivilent"
+                        
                     val = float(event.widget.get())
                     if val < min_val:
                         self.recheck = True
-                        mb.showwarning(event.widget.get() +" : Entry Not Valid","Value is below normal range.\nPlease Check value.")
+                        mb.showwarning(Name +" Not Valid","Value is below normal range.\nPlease Check value.")
                         if stop:
                             event.widget.focus_set()
                         return
                     if val > max_val:
                         self.recheck = True
-                        mb.showwarning(event.widget.get() +" : Entry Not Valid","Value is above normal range.\nPlease Check value.")
+                        mb.showwarning(Name +" Not Valid","Value is above normal range.\nPlease Check value.")
                         if stop:
                             event.widget.focus_set()
                         return
@@ -790,7 +838,7 @@ class gui:
                         except:
                             self.A_FlowL.configure(text="Flow Computation Failed")
             except:
-                mb.showwarning("Entry Not Valid","Must be a number.")
+                mb.showwarning(Name + " Entry Not Valid","Must be a number.")
                 self.recheck = True
                 event.widget.focus_set()
     def Load(self,*args):
@@ -864,10 +912,13 @@ class gui:
                 if i > (self.numrows-1):
                     self.AddGateRow()
                 i+=1
+            while maxRow < self.numrows:
+                self.RemoveGateRow()
             self.Validating = True
             for i in range(20):
-                self.gates[0][i].event_generate('<FocusOut>')
-                self.root.update_idletasks()
+                self.ElevF[i].focus_force()
+                self.ElevF[i].event_generate('<FocusOut>')
+            self.root.update_idletasks()
             self.a_gates[0].event_generate('<FocusOut>')
         else:
             year,month,day,hour,Min,sec,wd,yd,dst = time.gmtime(time.time()-(self.Entry_dates.index(self.Date)+1)*60*60*24)
@@ -906,7 +957,6 @@ class gui:
                 self.tailTemp.insert(0,self.Data['WaterTemp'][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'])
             except:
                 pass
-            self.ElevF[0].focus_force()
         self.Validating = True
                     
     def Clear(self):
