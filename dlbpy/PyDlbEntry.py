@@ -417,8 +417,9 @@ class gui:
         outflow column displays computed values based on a ratings lookup once gate
         settings data is entered.
 
-        Four rows (1200, 1800, 2400, and 0600) are displayed by default. An "Add Gate
-        Change" button is provided to add additional rows.
+        Four rows (1200, 1800, 2400, and 0600) are displayed by default. "Add Gate
+        Change" and "Remove Gate Change" buttons are provided to add or remove
+        rows as needed to account for gate changes outside the four normal times.
 
         Args:
             parent: The parent frame of the gate_settings_frame.
