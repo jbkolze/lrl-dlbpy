@@ -240,7 +240,7 @@ class gui:
                               'CHL':['Coxville'],
                               'CMR':['Reelsville','Bowling Green','Spencer'],
                               'CRR':['Farmers','Morehead (TR. C)'],
-                              'GRR':['Columbia'],
+                              'GRR':['Columbia','Greensburg'],
                               'MNR':['Shoals','Petersburg','Bedford'],
                               'NRR':['Munfordville','Brownsville'],
                               'PRR':['Jasper'],
@@ -248,7 +248,7 @@ class gui:
                               'TVL':['Brashears Creek'],
                               'WFR':['Reading','Carthage'],
                               'WHL':['Perintown']}
-        self.OtherStations = {'BRR':['Calhoun'],'NRR':['Lock 4 (Woodbury)','Calhoun'],'RRR':['Lock 4 (Woodbury)','Calhoun'],'GRR':['Greensburg', 'Munfordville','Lock 4 (Woodbury)','Calhoun'],
+        self.OtherStations = {'BRR':['Calhoun'],'NRR':['Lock 4 (Woodbury)','Calhoun'],'RRR':['Lock 4 (Woodbury)','Calhoun'],'GRR':['Munfordville','Lock 4 (Woodbury)','Calhoun'],
                                      'CHL':['Fincastle','Terre Haute','Mt Carmel'],'CMR':['WhiteRiver@Petersburg'],'MNR':['Mt Carmel'],
                                      'BVR':['Cincinnati'],'BHR':['Hyden','Wooten','Cincinnati'],'CBR':[],'CCK':['Cincinnati'],'CFK':['Lock 14'],'CRR':['Salyersville','Blue Lick Springs','Catawba','Cincinnati'],
                                      'PRR':[],'TVL':['Glensboro\nCFS','Shepherdsville'],'WFR':[],'WHL':['Milford','Williamsburg\ncfs','Cincinnati']}
