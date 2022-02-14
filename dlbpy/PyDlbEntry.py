@@ -1,22 +1,26 @@
+import time
+from datetime import datetime
+from os.path import exists
+import re
+import urllib.request
 from tkinter import *
 from tkinter import filedialog
 from tkinter import font as tkFont
-import time
-from datetime import datetime
-import ratings
-import os
-from os.path import exists
-import re
 from tkinter import messagebox as mb
-import urllib.request
-from PIL import ImageGrab
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from matplotlib.dates import DateFormatter, DayLocator
-from matplotlib.ticker import FormatStrFormatter
-import seaborn as sns
-import pandas as pd
+import os
 from typing import Dict, List, Tuple
+try:
+    import ratings
+    from PIL import ImageGrab
+    import matplotlib.pyplot as plt
+    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+    from matplotlib.dates import DateFormatter, DayLocator
+    from matplotlib.ticker import FormatStrFormatter
+    import seaborn as sns
+    import pandas as pd
+except:
+    print("Error loading libraries")
+    time.sleep(5)
 
 pd.plotting.register_matplotlib_converters()
 
@@ -63,7 +67,7 @@ class DlbLabelFrame(LabelFrame):
             text=text,
             borderwidth=2,
             padx=5,
-            pady=10,
+            pady=5,
             **kwargs,
         )
 
@@ -203,6 +207,7 @@ class gui:
                       'Taylorsville':'TVL','WestFork':'WFR','W H Harsha':'WHL'}
         self.root = Tk()
         self.root.title('DLB Input Program')
+        self.root.config(background='white')
         self.LaunchCanvas = Canvas(self.root)
         w, h = self.root.winfo_screenwidth(), self.root.winfo_screenheight()
         self.root.geometry("%dx%d+-10+0" % (w, h)) 
@@ -263,7 +268,7 @@ class gui:
             }
         }
 
-        usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277446','CHL':'03340870','CMR':'03358900',
+        self.usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277446','CHL':'03340870','CMR':'03358900',
                'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','RRR':'03318005','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
                'Hyden':'03280612','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
                'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
@@ -320,7 +325,7 @@ class gui:
                         url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code['Tailwater']+'=on&format=rdb&site_no='+Tailwater[self.lkname]+'&period=7'
                 else:
                     self.Data[locs[i]] = {}
-                    url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code[parameters[i]]+'=on&format=rdb&site_no='+usgs[station]+'&period=7'
+                    url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code[parameters[i]]+'=on&format=rdb&site_no='+self.usgs[station]+'&period=7'
                 if len(url) > 0:
                     req = urllib.request.Request(url)
                     response = urllib.request.urlopen(req)
@@ -374,7 +379,8 @@ class gui:
                              'CRR':[719,788],'GRR':[663,734],'MNR':[533,574],'NRR':[487,581],'PRR':[527,564],'RRR':[465,554],'TVL':[540,623],'WFR':[670,735.5],'WHL':[724,819]}
         #Upper Elevation is top of Dam
         #Lower Elevation is winter pool -5
-
+        self.extra_blanks = {'BHR':0,'BRR':0,'BVR':0,'CBR':0,'CCK':0,'CFK':0,'CHL':0,'CMR':0,
+                              'CRR':0,'GRR':0,'MNR':0,'NRR':0,'PRR':4,'RRR':0,'TVL':0,'WFR':0,'WHL':0}
         self.Gate_configuration = {'BHR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1)],
                               'BRR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',2),('Bypass 2 Level','L2',2)],
                               'BVR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',6),('Bypass 2 Level','L2',6)],
@@ -395,6 +401,7 @@ class gui:
 
         self.Validating = False
         newWindow = Frame(self.root)
+        newWindow.config(background='white')
         newWindow.pack()
         self.infobox = Label(newWindow,font=("Arial", 10))
         self.infobox.grid(row=4,column=12,rowspan=2,columnspan=3)
@@ -402,34 +409,46 @@ class gui:
         self.flow = ratings.GateRatingSet(self.lkname)
         
         gate_settings_frame = self.build_gate_settings_frame(newWindow)
+        gate_settings_frame.config(background='white')
         gate_settings_frame.grid(row=0, column=0, columnspan=4, padx=5, pady=5, sticky='nsew')
         
         pool_change_frame = self.build_pool_change_frame(newWindow)
+        pool_change_frame.config(background='white')
         precip_frame = self.build_precip_frame(newWindow)
+        precip_frame.config(background='white')
         weather_frame = self.build_weather_frame(newWindow)
+        weather_frame.config(background='white')
         weather_frame.grid_propagate(0)  # Fixed width to prevent GUI "bouncing"
         temperature_frame = self.build_temperature_frame(newWindow)
+        temperature_frame.config(background='white')
         for i, frame in enumerate([pool_change_frame, precip_frame, weather_frame, temperature_frame]):
             frame.grid(row=1, column=i, padx=5, pady=5, sticky='nsew')
+            frame.config(background='white')
 
         anticipated_frame = self.build_anticipated_frame(newWindow)
+        anticipated_frame.config(background='white')
         river_stations_frame = self.build_river_stations_frame(newWindow)
+        river_stations_frame.config(background='white')
         for i, frame in enumerate([anticipated_frame, river_stations_frame]):
             frame.grid(row=2, column=i*2, columnspan=2, padx=5, pady=5, sticky='nsew')  
+            frame.config(background='white')
 
         remarks_frame = self.build_remarks_frame(newWindow)
+        remarks_frame.config(background='white')
         remarks_frame.grid(row=3, column=0, columnspan=4, padx=5, pady=5, sticky='nsew')
 
         cp_plots_frame = self.build_cp_plots_frame(newWindow)
         cp_plots_frame.grid(row=4, column=0, columnspan=4, padx=5, pady=5, sticky='nsew')
-
+        cp_plots_frame.config(background='white')
         header_frame = self.build_header_frame(newWindow)
         header_frame.grid(row=0, column=4, padx=5, sticky='nsew')
+        header_frame.config(background='white')
         project_plots_frame = self.build_project_plots_frame(newWindow)
         project_plots_frame.grid(row=1, column=4, rowspan=4, padx=5, pady=5, sticky='nsew')
-
+        project_plots_frame.config(background='white')
         self.Load()
-
+        for i in range(self.extra_blanks[self.lkname]):
+            self.AddGateRow()
     def build_gate_settings_frame(self, parent: Widget):
         """Returns a DlbLabelFrame containing the gate setting entry fields.
         Default columns include Date, Time, Elevation, and Tailwater. These columns
@@ -445,13 +464,13 @@ class gui:
         """
         lkname = self.lkname
         gate_settings_frame = DlbLabelFrame(parent, 'Gate Settings')
-        Label(gate_settings_frame,text ="Date").grid(row = 0, column = 0)
-        Label(gate_settings_frame,text ="Time").grid(row = 0, column = 1)
-        Label(gate_settings_frame,text ="Elevation").grid(row = 0, column = 2)
-        Label(gate_settings_frame,text ="Tailwater").grid(row = 0, column = 3)
+        Label(gate_settings_frame,text ="Date",bg='white').grid(row = 0, column = 0)
+        Label(gate_settings_frame,text ="Time",bg='white').grid(row = 0, column = 1)
+        Label(gate_settings_frame,text ="Elevation",bg='white').grid(row = 0, column = 2)
+        Label(gate_settings_frame,text ="Tailwater",bg='white').grid(row = 0, column = 3)
         r,c = 0,4
         for i in range(len( self.Gate_configuration[lkname])):
-            Label(gate_settings_frame,text= self.Gate_configuration[lkname][i][0]).grid(row=r,column=c)
+            Label(gate_settings_frame,text= self.Gate_configuration[lkname][i][0],bg='white').grid(row=r,column=c)
             c+=1
         self.DateF = []
         self.TimeF = []
@@ -471,22 +490,24 @@ class gui:
         for j in range(len( self.Gate_configuration[lkname])):
             self.gates.append([])
         for i in range(20):
-            self.DateF.append(Label(gate_settings_frame))
-            self.TimeF.append(Entry(gate_settings_frame, width=10))
+            self.DateF.append(Label(gate_settings_frame,bg='white'))
+            self.TimeF.append(Entry(gate_settings_frame, width=10,relief=GROOVE,bd=4))
             self.TimeF[i].bind('<FocusOut>',self.Validate_time)
-            self.ElevF.append(Entry(gate_settings_frame, width=10))
+            self.ElevF.append(Entry(gate_settings_frame, width=10,relief=GROOVE,bd=4))
             self.ElevF[i].bind('<FocusOut>',self.Validate)
-            self.TailWaterF.append(Entry(gate_settings_frame, width=10))
+            self.TailWaterF.append(Entry(gate_settings_frame, width=10,relief=GROOVE,bd=4))
             self.TailWaterF[i].bind('<FocusOut>',self.Validate)
             for j in range(len( self.Gate_configuration[lkname])):
-                self.gates[j].append(Entry(gate_settings_frame, width=10))
+                self.gates[j].append(Entry(gate_settings_frame, width=10,relief=GROOVE,bd=4))
                 self.gates[j][i].bind('<FocusOut>',self.Validate)
             self.FlowL.append(Label(gate_settings_frame))
-        Label(gate_settings_frame,text="Outflow (cfs)").grid(row=0,column=j+5)
+        Label(gate_settings_frame,text="Outflow (cfs)",bg='white').grid(row=0,column=j+5)
         for i in range(j+6):
             gate_settings_frame.columnconfigure(i, minsize=50, weight=1)
 
         self.gate_buttons_frame = Frame(gate_settings_frame)
+        self.gate_buttons_frame.config(background='white')
+        
         add_gate_button = Button(self.gate_buttons_frame, text="Add Gate Change", command=self.AddGateRow)
         remove_gate_button = Button(self.gate_buttons_frame, text="Remove Gate Change",command=self.RemoveGateRow)
         add_gate_button.grid(row=0, column=0, padx=(20, 0))
@@ -561,9 +582,9 @@ class gui:
         """
         for i, (label_text, entry) in enumerate(entry_pairs):
             if ' ' not in label_text:
-                label = Label(parent, text=label_text, justify=CENTER)
+                label = Label(parent, text=label_text, justify=CENTER,bg='white')
             else:
-                label = EntryLabel(parent, label_text)
+                label = EntryLabel(parent, label_text,bg='white')
             label.grid(row=0, column=i, sticky="n")
             entry.grid(row=1, column=i, sticky="s")
             parent.columnconfigure(i, minsize=50, weight=1)
@@ -575,7 +596,7 @@ class gui:
             parent: The parent frame of the pool_change_frame.
         """
         pool_change_frame = DlbLabelFrame(parent, 'Pool')
-        self.change = Entry(pool_change_frame, width=7)
+        self.change = Entry(pool_change_frame, width=7,relief=GROOVE,bd=4)
         self.layout_entry_grid(
             pool_change_frame,
             [
@@ -592,9 +613,9 @@ class gui:
             parent: The parent frame of the precip_frame.
         """
         precip_frame = DlbLabelFrame(parent, 'Precipitation')
-        self.precip = Entry(precip_frame, width=7)
-        self.snow = Entry(precip_frame, width=7)
-        self.swe = Entry(precip_frame, width=7)
+        self.precip = Entry(precip_frame, width=7,relief=GROOVE,bd=4)
+        self.snow = Entry(precip_frame, width=7,relief=GROOVE,bd=4)
+        self.swe = Entry(precip_frame, width=7,relief=GROOVE,bd=4)
         self.layout_entry_grid(
             precip_frame,
             [
@@ -636,10 +657,10 @@ class gui:
             parent: The parent frame of the temperature_frame.
         """
         temperature_frame = DlbLabelFrame(parent, 'Temperature')
-        self.curTemp = Entry(temperature_frame, width=7)
-        self.maxTemp = Entry(temperature_frame, width=7)
-        self.minTemp = Entry(temperature_frame, width=7)
-        self.tailTemp = Entry(temperature_frame, width=7)
+        self.curTemp = Entry(temperature_frame, width=7,relief=GROOVE,bd=4)
+        self.maxTemp = Entry(temperature_frame, width=7,relief=GROOVE,bd=4)
+        self.minTemp = Entry(temperature_frame, width=7,relief=GROOVE,bd=4)
+        self.tailTemp = Entry(temperature_frame, width=7,relief=GROOVE,bd=4)
         deg = u'\N{DEGREE SIGN}'
         self.layout_entry_grid(
             temperature_frame,
@@ -668,7 +689,7 @@ class gui:
         self.a_gates = []
         for i, gate in enumerate(self.Gate_configuration[self.lkname]):
             label = gate[0]
-            entry = Entry(anticipated_frame, width=7)
+            entry = Entry(anticipated_frame, width=7,relief=GROOVE,bd=4)
             self.a_gates.append(entry)
             gate_pairs.append((label, entry))
         self.A_FlowL = Label(anticipated_frame)
@@ -691,7 +712,7 @@ class gui:
         self.r_station = []
         station_pairs = []
         for station_name in self.River_Stations[self.lkname]:
-            entry = Entry(river_stations_frame, width=7)
+            entry = Entry(river_stations_frame, width=7,relief=GROOVE,bd=4)
             station_pairs.append((station_name, entry))
             self.r_station.append(entry)
         mon,day,year = self.Date.split('/')
@@ -712,9 +733,9 @@ class gui:
             parent: The parent frame of the remarks_frame.
         """
         remarks_frame = DlbLabelFrame(parent, "Remarks")
-        remarks_label = Label(remarks_frame, text="Remarks:")
+        remarks_label = Label(remarks_frame, text="Remarks:",bg='white')
         remarks_label.grid(row=0,column=0)
-        self.remarks = Entry(remarks_frame, width=77)
+        self.remarks = Entry(remarks_frame, width=77,relief=GROOVE,bd=4)
         self.remarks.grid(row=0, column=1)
         return remarks_frame
 
@@ -730,13 +751,15 @@ class gui:
         """
         cp_plots_frame = DlbLabelFrame(parent, "Control Point Plots")
         stations = self.River_Stations[self.lkname] + self.OtherStations[self.lkname]
+        self.cp_plots = []
         for i, station in enumerate(stations):
             limits = None
             if self.lkname in self.limits:
                 if station in self.limits[self.lkname]:
                     limits = self.limits[self.lkname][station]
             plot = build_plot(cp_plots_frame, self.Data[station], station, limits)
-            plot.get_tk_widget().grid(row=0, column=i, padx=5)
+            self.cp_plots.append(plot.get_tk_widget())
+            self.cp_plots[-1].grid(row=0, column=i, padx=5)
             cp_plots_frame.columnconfigure(i, weight=1)
         if self.lkname in self.limits:
             wcm_note = "Black (dotted) line: Water Control Manual operational limit.  Flood setting should be used if stage is above this limit and rising unless directed otherwise by Water Management."
@@ -745,10 +768,16 @@ class gui:
             nws_note = "Red (dashed) line: National Weather Service flood stage."
             nws_label = Label(cp_plots_frame, text=nws_note)
             nws_label.grid(row=2, column=0, columnspan=len(stations))
-            
         cp_plots_frame.rowconfigure(0, weight=1)
+        for p in self.cp_plots:
+            p.bind("<Button-1>",self.get_web_table)
         return cp_plots_frame
-
+    def get_web_table(self,event):
+        index = self.cp_plots.index(event.widget)
+        stations = self.River_Stations[self.lkname] + self.OtherStations[self.lkname]
+        station = stations[index]
+        webaddress = 'https://waterdata.usgs.gov/nwis/uv?cb_00060=on&cb_00065=on&format=html&site_no='+self.usgs[station]+'&period=1'
+        os.system('start "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" "'+ webaddress +'"')
     def build_header_frame(self, parent):
         """Returns a Frame containing the main header info and controls.
         The header frame contains a Label of the 3-letter code for the active
@@ -792,13 +821,19 @@ class gui:
         Finally the send.bat is called to transfer the files to the server."""
         err = self.find_submit_errors()
         try:
-            x0,y0,x1,y1 = self.root.winfo_rootx(),self.root.winfo_rooty(),self.root.winfo_rootx()+self.root.winfo_width(),self.root.winfo_rooty()+self.root.winfo_height()
+            x0,y0,x1,y1 = (self.DateF[0].winfo_rootx(),self.DateF[0].winfo_rooty()-50,
+                self.infobox.winfo_rootx()+320,
+                self.root.winfo_rooty()+self.root.winfo_height()+150)
+            print(x0,y0,x1,y1)
+            im = ImageGrab.grab(bbox =(x0,y0,x1,y1))
+            im.save('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/Captured/'+self.lkname+'.jpg')
+            self.infobox.configure(text="Submission Started")
+            self.root.update_idletasks()
+        except:
             im = ImageGrab.grab()
             im.save('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/Captured/'+self.lkname+'.jpg')
             self.infobox.configure(text="Submission Started")
-            self.root.update_idletasks()     
-        except:
-            pass
+            self.root.update_idletasks()
         if err:
             mb.showwarning("Submission Halted Due to Error",err+'\nPlease Correct and resubmit')
             return False
