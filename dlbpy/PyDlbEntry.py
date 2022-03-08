@@ -186,13 +186,10 @@ def datatypes(rdbfile):
     for line in rdbfile.split('\n'):
         if line[13:15] == 'TS':
             StartOfDD = 1
-        try:
-            if line[0] == '#'  and StartOfDD:
-                matchobj = re.match('#\D*(\d+)\D*(\d\d\d\d\d)\s*([\w\s]+)([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*',line)
-                if matchobj:
-                    datatypes.append(matchobj.groups())
-        except:
-            pass
+        if line[0] == '#'  and StartOfDD:
+            matchobj = re.match('#\D*(\d+)\D*(\d\d\d\d\d)\s*([\w\s]+)([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*',line)
+            if matchobj:
+                datatypes.append(matchobj.groups())
     return datatypes
 class gui:
     """Build the base menu to allow the selection of the lake for the DLB
@@ -201,7 +198,7 @@ class gui:
     def __init__(self):
         self.testmode = True
         if self.testmode:
-            self.directory = r'o:\ed\public\projectdata\ed-t\ed-tw-perm\dlb'
+            self.directory = r'o:\ed\public\projectdata\ed-t\ed-tw-perm\dlb_testing'
         else:
             self.directory = r'o:\ed\public\dlb'
         self.master_dictionary = json.load(open(r'O:\ed\public\dlb\dlbpy\bin\master_dictionary.json','r'))
@@ -237,15 +234,15 @@ class gui:
         html = html.decode('utf8')
         types = datatypes(html)
         return html,types
-    def store_web_data(self,html,types,loc,parameter,special_code):
+    def store_web_data(self,html,loc,parameter,special_code):
         for line in html.split('\n'):
             if line.split('\t')[0] == 'agency_cd':
                 offset = line.split('\t').index(special_code+'_'+parameter)
             if line.split('\t')[0] == 'USGS':
                 try:
                     self.Data[loc][line.split('\t')[2]] = float(line.split('\t')[offset])
-                except:
-                    pass
+                except TypeError:
+                    print ('TypeError in USGS: ' + line)
     def getData(self):
         """Retrieve data from USGS using the IDs and store the datestamped values in a dictionary object in the self.Data Object keyed off of the loc/parameter
         """
@@ -257,7 +254,7 @@ class gui:
                         special_code = self.project['special_code']
                     else:
                         special_code = types[i][0]
-        self.store_web_data(html,types,self.lkname,self.master_dictionary['usgs_codes']['Elev'],special_code)
+        self.store_web_data(html,self.lkname,self.master_dictionary['usgs_codes']['Elev'],special_code)
         self.Data['Tailwater'] = {}
         self.Data['WaterTemp'] = {}
         for loc in self.project["stations"]:
@@ -271,20 +268,20 @@ class gui:
                         special_code = loc['special_code']
                     else:
                         special_code = types[i][0]
-                self.store_web_data(html,types,loc['name'],self.master_dictionary['usgs_codes'][loc['parameter']],special_code)
-            except:
-                pass
+                self.store_web_data(html,loc['name'],self.master_dictionary['usgs_codes'][loc['parameter']],special_code)
+            except urllib.error.URLError:
+                print (loc['name'] + ' URL not retrieved: ' + 'https://waterdata.usgs.gov/nwis/uv?cb_'+self.master_dictionary['usgs_codes'][loc['parameter']]+'=on&format=rdb&site_no='+loc['usgs_id']+'&period=7')
                             
-        if self.project['tailwater']['usgs_id']:
-            html, types = self.process_web_request('https://waterdata.usgs.gov/nwis/uv?cb_'+self.master_dictionary['usgs_codes']["Tailwater"]+'=on&format=rdb&site_no='+self.project['tailwater']['usgs_id']+'&period=7')
-            for code,loc,parameter in [['wt_code','WaterTemp','00010'],['stg_code','Tailwater','00065']]:
-                if code not in  self.project['tailwater'].keys():
+        for parm, usgs_code, field in [['Tailwater','00065','stage'],['WaterTemp','00010','temp']]:
+            if self.project['tailwater'][field]['usgs_id']:
+                html, types = self.process_web_request('https://waterdata.usgs.gov/nwis/uv?cb_'+self.master_dictionary['usgs_codes']["Tailwater"]+'=on&format=rdb&site_no='+self.project['tailwater'][field]['usgs_id']+'&period=7')
+                if 'code' not in  self.project['tailwater'][field].keys():
                     for i in range(len(types)):
-                        if parameter in types[i]:
+                        if usgs_code in types[i]:
                             special_code = types[i][0]
                 else:
-                    special_code = self.project['tailwater'][code]
-                self.store_web_data(html,types,loc,parameter,special_code)
+                    special_code = self.project['tailwater'][parm]['code']
+                self.store_web_data(html,parm,usgs_code,special_code)
                         
     def LoadDLB(self):
         for key in self.master_dictionary['projects'].keys():
@@ -651,10 +648,10 @@ class gui:
         if print_limits_message:
             wcm_note = "Black (dotted) line: Water Control Manual operational limit.  Flood setting should be used if stage is above this limit and rising unless directed otherwise by Water Management."
             wcm_label = Label(cp_plots_frame, text=wcm_note)
-            wcm_label.grid(row=1, column=0, columnspan=len(stations))
+            wcm_label.grid(row=1, column=0, columnspan=len(self.project['stations']))
             nws_note = "Red (dashed) line: National Weather Service flood stage."
             nws_label = Label(cp_plots_frame, text=nws_note)
-            nws_label.grid(row=2, column=0, columnspan=len(stations))
+            nws_label.grid(row=2, column=0, columnspan=len(self.project['stations']))
         cp_plots_frame.rowconfigure(0, weight=1)
         for p in self.cp_plots:
             p.bind("<Button-1>",self.get_web_table)
@@ -766,7 +763,7 @@ class gui:
                 value = self.r_station[i].get()
             else:
                 value = "-901"
-            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' +  self.River_Stations[self.lkname][i] + ' :' + value + '\n')
+            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' +  self.project['stations'][i]['name'] + ' :' + value + '\n')
         f.write('#Remarks\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 REMARKS :' + self.remarks.get() + '\n')
         f.flush()
@@ -867,10 +864,13 @@ rm ssh.ppk
         missing_fields = [x[0] for x in required_fields if x[1].get() == '']
         if self.weather.get() == 'Select Weather':
             missing_fields.append('Present Weather')
-        if float(self.snow.get()) < float(self.swe.get()):
-            return f'Snow Water Content cannot be greater than Snow On Ground'
         if missing_fields:
             return f'The following required fields are missing: {missing_fields}'
+        try:
+            if float(self.snow.get()) < float(self.swe.get()):
+                return f'Snow Water Content cannot be greater than Snow On Ground'
+        except TypeError:
+            return "Snow On Ground and Snow Water Content must be a number"
         return ''
 
     def check_additional_gate_entries(self) -> str:
@@ -943,7 +943,7 @@ rm ssh.ppk
         If the value is outside of the bound an error is displayed.
         Finally if the value cannot be evaluated because it isn't the right datatype an error message indicating the value is not a number"""
         if self.Validating:
-#            try:
+            try:
                 Name = ""
                 stop = True
                 index = -901
@@ -964,7 +964,7 @@ rm ssh.ppk
                         min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
                     for i in range(len(self.project['gate_configuration'])):
                         if event.widget in self.gates[i]:
-                            if len(project['gate_configuration'][i]) == 4:
+                            if len(self.project['gate_configuration'][i]) == 4:
                                 min_val,max_val=float(self.project['gate_configuration'][i][2]),float(self.project['gate_configuration'][i][3])
                                 if self.project['gate_configuration'][i][1][0] == 'L':
                                     if int(event.widget.get()) == 0:
@@ -1106,10 +1106,10 @@ rm ssh.ppk
                             self.A_FlowL.configure(text=str(self.flow.get_total_flow(float(self.ElevF[3].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
                         except:
                             self.A_FlowL.configure(text="Flow Computation Failed")
-#            except:
-#                mb.showwarning(Name + " Entry Not Valid","Must be a number.")
-#                self.recheck = True
-#                event.widget.focus_set()
+            except TypeError:
+                mb.showwarning(Name + " Entry Not Valid","Must be a number.")
+                self.recheck = True
+                event.widget.focus_set()
     def Load(self,*args):
         """Checks for the presence of a date stamped file matching the lake and date.
         Parses the file and populates the entry objects"""
