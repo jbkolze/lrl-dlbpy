@@ -20,7 +20,33 @@ import seaborn as sns
 import pandas as pd
 
 pd.plotting.register_matplotlib_converters()
-
+def interpolateCurve(ys,xs,target_x):
+    if target_x in xs:
+        return ys[xs.index(target_x)]
+    i = 0
+    while target_x > xs[i]:
+        i += 1
+    y0 = ys[i-1]
+    y1 = ys[i]
+    x0 = xs[i-1]
+    x1 = xs[i]
+    return y0 + (target_x - x0)*(y1-y0)/(x1-x0)
+def getTargetElevation(date,lake, ruleCurve):
+    month, day, year = date.split('/')
+    julianDate = datetime(int(year),int(month),int(day))
+    tt = julianDate.timetuple()
+    julianDay = tt.tm_yday
+    julianRuleCurve = {}
+    for key in ruleCurve.keys():
+        julianKey = datetime(int(year),int(key.split('/')[0]),int(key.split('/')[1])).timetuple().tm_yday
+        julianRuleCurve[julianKey] = ruleCurve[key]
+    xs = []
+    for x in julianRuleCurve.keys():
+        xs.append(x)
+    ys = []
+    for x in xs:
+        ys.append(julianRuleCurve[x])
+    return interpolateCurve(ys,xs,julianDay)
 
 class EntryLabel(Message):
     """A standard Message object with default parameters for dlbpy.
@@ -182,14 +208,18 @@ def pad(t,l,s):
         t = s+t
     return t
 def datatypes(rdbfile):
+    StartOfDD = False
     datatypes = []
     for line in rdbfile.split('\n'):
         if line[13:15] == 'TS':
             StartOfDD = 1
-        if line[0] == '#'  and StartOfDD:
-            matchobj = re.match('#\D*(\d+)\D*(\d\d\d\d\d)\s*([\w\s]+)([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*',line)
-            if matchobj:
-                datatypes.append(matchobj.groups())
+        try:
+            if line[0] == '#'  and StartOfDD:
+                matchobj = re.match('#\D*(\d+)\D*(\d\d\d\d\d)\s*([\w\s]+)([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*',line)
+                if matchobj:
+                    datatypes.append(matchobj.groups())
+        except:
+            pass
     return datatypes
 class gui:
     """Build the base menu to allow the selection of the lake for the DLB
@@ -198,7 +228,7 @@ class gui:
     def __init__(self):
         self.testmode = True
         if self.testmode:
-            self.directory = r'o:\ed\public\projectdata\ed-t\ed-tw-perm\dlb_testing'
+            self.directory = r'o:\ed\public\projectdata\ed-t\ed-tw-perm\dlb'
         else:
             self.directory = r'o:\ed\public\dlb'
         self.master_dictionary = json.load(open(r'O:\ed\public\dlb\dlbpy\bin\master_dictionary.json','r'))
@@ -234,15 +264,15 @@ class gui:
         html = html.decode('utf8')
         types = datatypes(html)
         return html,types
-    def store_web_data(self,html,loc,parameter,special_code):
+    def store_web_data(self,html,types,loc,parameter,special_code):
         for line in html.split('\n'):
             if line.split('\t')[0] == 'agency_cd':
                 offset = line.split('\t').index(special_code+'_'+parameter)
             if line.split('\t')[0] == 'USGS':
                 try:
                     self.Data[loc][line.split('\t')[2]] = float(line.split('\t')[offset])
-                except TypeError:
-                    print ('TypeError in USGS: ' + line)
+                except:
+                    pass
     def getData(self):
         """Retrieve data from USGS using the IDs and store the datestamped values in a dictionary object in the self.Data Object keyed off of the loc/parameter
         """
@@ -254,7 +284,7 @@ class gui:
                         special_code = self.project['special_code']
                     else:
                         special_code = types[i][0]
-        self.store_web_data(html,self.lkname,self.master_dictionary['usgs_codes']['Elev'],special_code)
+        self.store_web_data(html,types,self.lkname,self.master_dictionary['usgs_codes']['Elev'],special_code)
         self.Data['Tailwater'] = {}
         self.Data['WaterTemp'] = {}
         for loc in self.project["stations"]:
@@ -268,9 +298,9 @@ class gui:
                         special_code = loc['special_code']
                     else:
                         special_code = types[i][0]
-                self.store_web_data(html,loc['name'],self.master_dictionary['usgs_codes'][loc['parameter']],special_code)
-            except urllib.error.URLError:
-                print (loc['name'] + ' URL not retrieved: ' + 'https://waterdata.usgs.gov/nwis/uv?cb_'+self.master_dictionary['usgs_codes'][loc['parameter']]+'=on&format=rdb&site_no='+loc['usgs_id']+'&period=7')
+                self.store_web_data(html,types,loc['name'],self.master_dictionary['usgs_codes'][loc['parameter']],special_code)
+            except:
+                pass
                             
         for parm, usgs_code, field in [['Tailwater','00065','stage'],['WaterTemp','00010','temp']]:
             if self.project['tailwater'][field]['usgs_id']:
@@ -281,7 +311,9 @@ class gui:
                             special_code = types[i][0]
                 else:
                     special_code = self.project['tailwater'][parm]['code']
-                self.store_web_data(html,parm,usgs_code,special_code)
+                for var in [html,parm,usgs_code,special_code]:
+                    print (var)
+                self.store_web_data(html,types,parm,usgs_code,special_code)
                         
     def LoadDLB(self):
         for key in self.master_dictionary['projects'].keys():
@@ -351,7 +383,7 @@ class gui:
         Label(gate_settings_frame,text ="Tailwater",bg='white').grid(row = 0, column = 3)
         r,c = 0,4
         for i in range(len( self.project['gate_configuration'])):
-            Label(gate_settings_frame,text=  self.project['gate_configuration'][i][0],bg='white').grid(row=r,column=c)
+            Label(gate_settings_frame,text=  self.project['gate_configuration'][i]['label'],bg='white').grid(row=r,column=c)
             c+=1
         self.DateF = []
         self.TimeF = []
@@ -569,7 +601,7 @@ class gui:
         gate_pairs = []
         self.a_gates = []
         for i, gate in enumerate(self.project['gate_configuration']):
-            label = gate[0]
+            label = gate['label']
             entry = Entry(anticipated_frame, width=7,relief=GROOVE,bd=4)
             self.a_gates.append(entry)
             gate_pairs.append((label, entry))
@@ -678,8 +710,11 @@ class gui:
         date_dropdown.grid(row=1, column=0, pady=(10, 10))
         self.root.nametowidget(date_dropdown.menuname).config(font=helv)
         submit_button = Button(header_frame, text="Submit", command=self.Submit)
-        submit_button.config(width=10, height=2, bg='light blue',font=helv)
+        submit_button.config(width=10, height=1, bg='light blue',font=helv)
         submit_button.grid(row=2, column=0, pady=(10, 10))
+        target_elevation = getTargetElevation(self.TkDate.get(),self.lkname,self.project['guide_curve'])
+        self.target_label = Label(header_frame, text="Target Elevation: {:10.2f}".format(target_elevation), font=("Arial", 12))
+        self.target_label.grid(row=3, column=0, pady=(10, 10))
         header_frame.columnconfigure(0, weight=1)
         return header_frame
 
@@ -742,10 +777,10 @@ class gui:
                             if self.TailWaterF[i].get():
                                 f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() +' TAILWATER :' + self.TailWaterF[i].get() +'\n')
                             for j in range(len(self.project['gate_configuration'])):
-                                f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() + ' ' +  self.project['gate_configuration'][j][1] + ' :' + self.gates[j][i].get() + '\n')
+                                f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() + ' ' +  self.project['gate_configuration'][j]['shortlabel'] + ' :' + self.gates[j][i].get() + '\n')
         f.write('#Anticipateed and Gate Setting\n')
         for i in range(len(self.a_gates)):
-            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' + self.project['gate_configuration'][i][1][:-1] + '_ANTICIPATED_' + self.project['gate_configuration'][i][1][-1] + ' :' + self.a_gates[i].get() + '\n')
+            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' + self.project['gate_configuration'][i]['shortlabel'][:-1] + '_ANTICIPATED_' + self.project['gate_configuration'][i]['shortlabel'][-1] + ' :' + self.a_gates[i].get() + '\n')
         f.write('#Weather\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 CHANGE :' + self.change.get() +'\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 AMTRAIN :' + self.precip.get() +'\n')
@@ -763,7 +798,7 @@ class gui:
                 value = self.r_station[i].get()
             else:
                 value = "-901"
-            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' +  self.project['stations'][i]['name'] + ' :' + value + '\n')
+            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' +  self.River_Stations[self.lkname][i] + ' :' + value + '\n')
         f.write('#Remarks\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 REMARKS :' + self.remarks.get() + '\n')
         f.flush()
@@ -864,13 +899,10 @@ rm ssh.ppk
         missing_fields = [x[0] for x in required_fields if x[1].get() == '']
         if self.weather.get() == 'Select Weather':
             missing_fields.append('Present Weather')
+        if float(self.snow.get()) < float(self.swe.get()):
+            return f'Snow Water Content cannot be greater than Snow On Ground'
         if missing_fields:
             return f'The following required fields are missing: {missing_fields}'
-        try:
-            if float(self.snow.get()) < float(self.swe.get()):
-                return f'Snow Water Content cannot be greater than Snow On Ground'
-        except TypeError:
-            return "Snow On Ground and Snow Water Content must be a number"
         return ''
 
     def check_additional_gate_entries(self) -> str:
@@ -949,7 +981,7 @@ rm ssh.ppk
                 index = -901
                 if not (event.widget.get() == '') and not self.recheck:
                     if event.widget in self.ElevF:
-                        min_val, max_val = self.project["elev_limits"]
+                        min_val, max_val = self.project["elev_limits"]['min'],self.project["elev_limits"]['max']
                         index = self.ElevF.index(event.widget)
                         Name = "Elevation @ " + self.TimeF[index].get()
                         if index == 3:
@@ -964,41 +996,38 @@ rm ssh.ppk
                         min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
                     for i in range(len(self.project['gate_configuration'])):
                         if event.widget in self.gates[i]:
-                            if len(self.project['gate_configuration'][i]) == 4:
-                                min_val,max_val=float(self.project['gate_configuration'][i][2]),float(self.project['gate_configuration'][i][3])
-                                if self.project['gate_configuration'][i][1][0] == 'L':
-                                    if int(event.widget.get()) == 0:
-                                        return
-                            else:
-                                min_val,max_val = 0,float(self.project['gate_configuration'][i][2])
+                            min_val,max_val=float(self.project['gate_configuration'][i]['min']),float(self.project['gate_configuration'][i]['max'])
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'L':
+                                if int(event.widget.get()) == 0:
+                                    return
                             index = self.gates[i].index(event.widget)
-                            Name = self.project['gate_configuration'][i][1] + " @ " + self.TimeF[index].get()
-                            if self.project['gate_configuration'][i][1][0] == 'M' and not self.project['main_and_bypasses']:
+                            Name = self.project['gate_configuration'][i]['shortlabel'] + " @ " + self.TimeF[index].get()
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'M' and not self.project['main_and_bypasses']:
                                 try:
                                     if float(event.widget.get()) > 0:
                                         for j in range(len(self.project['gate_configuration'])):
-                                            if self.project['gate_configuration'][j][1][0] == 'B' and float(self.gates[j][index].get()) > 0:
+                                            if self.project['gate_configuration'][j]['shortlabel'][0] == 'B' and float(self.gates[j][index].get()) > 0:
                                                 self.recheck = True
                                                 mb.showwarning("Odd Gate Setting","It's Unusal to have Main Gate and Bypasses both open")
                                 except:
                                     pass
-                            if self.project['gate_configuration'][i][1][0] == 'B' and not self.project['main_gate_levels']:
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'B' and not self.project['main_gate_levels']:
                                 if float(event.widget.get()) == 0.0:
                                     for j in range(len(self.project['gate_configuration'])):
-                                        if self.project['gate_configuration'][j][1][0] == 'L':
-                                            if self.project['gate_configuration'][j][1][-1] == self.project['gate_configuration'][i][1][-1]:
+                                        if self.project['gate_configuration'][j]['shortlabel'][0] == 'L':
+                                            if self.project['gate_configuration'][j]['shortlabel'][-1] == self.project['gate_configuration'][i]['shortlabel'][-1]:
                                                 self.gates[j][index].delete(0,'end')
                                                 self.gates[j][index].insert(0,'0')
                                 if float(event.widget.get()) > 0:
                                     for j in range(len(self.project['gate_configuration'])):
-                                        if self.project['gate_configuration'][j][1][0] == 'M' and not self.project['main_and_bypasses']:
+                                        if self.project['gate_configuration'][j]['shortlabel'][0] == 'M' and not self.project['main_and_bypasses']:
                                             try:
                                                 if float(self.gates[j][index].get()) > 0:
                                                     self.recheck = True
                                                     mb.showwarning("Odd Gate Setting","It's Unusal to have Main Gate and Bypasses both open")
                                             except:
                                                 pass
-                            if self.project['gate_configuration'][i][1][0] == 'L':
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'L':
                                 try:
                                     int(event.widget.get())
                                 except:
@@ -1008,19 +1037,16 @@ rm ssh.ppk
                                     return
                         if event.widget == self.a_gates[i]:
                             index = -1
-                            if self.lkname == 'PRR':
-                                min_val,max_val=float(self.project['gate_configuration'][i][2]),float(self.project['gate_configuration'][i][3])
-                            else:
-                                min_val,max_val = 0,float(self.project['gate_configuration'][i][2])
-                                Name = self.project['gate_configuration'][i][1] + " Anticipated"
-                            if self.project['gate_configuration'][i][1][0] == 'B' and not self.project['main_gate_levels']:
+                            min_val,max_val=float(self.project['gate_configuration'][i]['min']),float(self.project['gate_configuration'][i]['max'])
+                            Name = self.project['gate_configuration'][i]['shortlabel'] + " Anticipated"
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'B' and not self.project['main_gate_levels']:
                                 if float(event.widget.get()) == 0.0:
                                     for j in range(len(self.project['gate_configuration'])):
-                                        if self.project['gate_configuration'][j][1][0] == 'L':
-                                            if self.project['gate_configuration'][j][1][-1] == self.project['gate_configuration'][i][1][-1]:
+                                        if self.project['gate_configuration'][j]['shortlabel'][0] == 'L':
+                                            if self.project['gate_configuration'][j]['shortlabel'][-1] == self.project['gate_configuration'][i]['shortlabel'][-1]:
                                                 self.a_gates[j].delete(0,'end')
                                                 self.a_gates[j].insert(0,'0')
-                            if self.project['gate_configuration'][i][1][0] == 'L':
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'L':
                                 try:
                                     int(event.widget.get())
                                 except:
@@ -1075,9 +1101,9 @@ rm ssh.ppk
                             flow = False
                         else:
                             if self.project['gate_configuration'][i][1] in ['L1','L2']:
-                                gates[self.project['gate_configuration'][i][1]] = int(self.gates[i][index].get())
+                                gates[self.project['gate_configuration'][i]['shortlabel']] = int(self.gates[i][index].get())
                             else:
-                                gates[self.project['gate_configuration'][i][1]] = float(self.gates[i][index].get())
+                                gates[self.project['gate_configuration'][i]['shortlabel']] = float(self.gates[i][index].get())
                     for key in ['MG1','MG2','BP1','BP2','L1','L2']:
                         if key not in gates.keys():
                             gates[key] = 0
@@ -1095,9 +1121,9 @@ rm ssh.ppk
                             self.A_FlowL.configure(text='')
                         else:
                             if self.project['gate_configuration'][i][1] in ['L1','L2']:
-                                gates[self.project['gate_configuration'][i][1]] = int(self.a_gates[i].get())
+                                gates[self.project['gate_configuration'][i]['shortlabel']] = int(self.a_gates[i].get())
                             else:
-                                gates[self.project['gate_configuration'][i][1]] = float(self.a_gates[i].get())
+                                gates[self.project['gate_configuration'][i]['shortlabel']] = float(self.a_gates[i].get())
                     for key in ['MG1','MG2','BP1','BP2','L1','L2']:
                         if key not in gates.keys():
                             gates[key] = 0
@@ -1106,7 +1132,7 @@ rm ssh.ppk
                             self.A_FlowL.configure(text=str(self.flow.get_total_flow(float(self.ElevF[3].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
                         except:
                             self.A_FlowL.configure(text="Flow Computation Failed")
-            except TypeError:
+            except:
                 mb.showwarning(Name + " Entry Not Valid","Must be a number.")
                 self.recheck = True
                 event.widget.focus_set()
@@ -1115,6 +1141,8 @@ rm ssh.ppk
         Parses the file and populates the entry objects"""
         self.Validating = False
         self.Date = self.TkDate.get()
+        target_elevation = getTargetElevation(self.TkDate.get(),self.lkname,self.project['guide_curve'])
+        self.target_label.configure(text="Target Elevation: {:10.2f}".format(target_elevation))
         filename = self.directory + '\\archive\\'+self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt'
         self.Clear()
         if exists(filename):
