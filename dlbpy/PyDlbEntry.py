@@ -226,9 +226,9 @@ class gui:
     Lakes are presented in a dropdown menu sorted alphabeticly.  A "Load Entry Sheet" Button
     will launch the DLB Entry Form"""
     def __init__(self):
-        self.testmode = True
+        self.testmode = False
         if self.testmode:
-            self.directory = r'o:\ed\public\projectdata\ed-t\ed-tw-perm\dlb'
+            self.directory = r'o:\ed\public\projectdata\ed-t\ed-tw-perm\dlb_testing'
         else:
             self.directory = r'o:\ed\public\dlb'
         self.master_dictionary = json.load(open(r'O:\ed\public\dlb\dlbpy\bin\master_dictionary.json','r'))
@@ -310,7 +310,7 @@ class gui:
                         if usgs_code in types[i]:
                             special_code = types[i][0]
                 else:
-                    special_code = self.project['tailwater'][parm]['code']
+                    special_code = self.project['tailwater'][field]['code']
                 for var in [html,parm,usgs_code,special_code]:
                     print (var)
                 self.store_web_data(html,types,parm,usgs_code,special_code)
@@ -740,15 +740,16 @@ class gui:
         Finally the send.bat is called to transfer the files to the server."""
         err = self.find_submit_errors()
         try:
-            x0,y0,x1,y1 = (self.DateF[0].winfo_rootx(),self.DateF[0].winfo_rooty()-50,
-                self.infobox.winfo_rootx()+320,
-                self.root.winfo_rooty()+self.root.winfo_height()+150)
+            x0,y0,x1,y1 = (self.DateF[0].winfo_rootx(),self.DateF[0].winfo_rooty(),
+                self.infobox.winfo_rootx(),
+                self.infobox.winfo_rooty())
             print(x0,y0,x1,y1)
-            im = ImageGrab.grab(bbox =(x0,y0,x1,y1))
+            im = ImageGrab.grab(bbox =(x0-25,y0-48,x1,y1+128),all_screens=True)
             im.save(self.directory + '/dlbpy/Captured/'+self.lkname+'.jpg')
             self.infobox.configure(text="Submission Started")
             self.root.update_idletasks()
         except:
+            print ("Error in image select")
             im = ImageGrab.grab()
             im.save(self.directory + '/dlbpy/Captured/'+self.lkname+'.jpg')
             self.infobox.configure(text="Submission Started")
@@ -798,7 +799,8 @@ class gui:
                 value = self.r_station[i].get()
             else:
                 value = "-901"
-            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' +  self.River_Stations[self.lkname][i] + ' :' + value + '\n')
+            if self.project['stations'][i]['entry']:
+                f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' +  self.project['stations'][i]['name'] + ' :' + value + '\n')
         f.write('#Remarks\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 REMARKS :' + self.remarks.get() + '\n')
         f.flush()
@@ -879,8 +881,8 @@ rm ssh.ppk
         i = 0
         for row in self.gate_rows[:4]:  # 1200, 1800, 2400, and 0600
             if not all(entry.get() for entry in row):
-                return f'Missing value(s) in gate table at {self.DateF[i]["text"]} on {row[1].get()}\nAll gate settings must be filled in.\nPlease fill in missing setting for this row.'
-                i += 1
+                return f'Missing value(s) in gate table at {self.DateF[i]["text"]} on {self.TimeF[i].get()}\nAll gate settings must be filled in.\nPlease fill in missing setting for this row.'
+            i += 1
         required_fields = [
             ["24-Hour Pool Change", self.change],
             ["24-Hour Precip", self.precip],
@@ -895,7 +897,7 @@ rm ssh.ppk
             if station['entry']:
                 required_fields.append([f"{station['name']} Stage", self.r_station[i]])
         for i, gate in enumerate(self.project['gate_configuration']):
-            required_fields.append([f'Ant. {gate[0]}', self.a_gates[i]])
+            required_fields.append([f'Ant. {gate["label"]}', self.a_gates[i]])
         missing_fields = [x[0] for x in required_fields if x[1].get() == '']
         if self.weather.get() == 'Select Weather':
             missing_fields.append('Present Weather')
@@ -993,7 +995,11 @@ rm ssh.ppk
                             except:
                                 pass
                     if event.widget in self.TailWaterF:
-                        min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
+                        try:
+                            min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
+                        except ValueError:
+                            return
+                        #min_val, max_val = 0,150
                     for i in range(len(self.project['gate_configuration'])):
                         if event.widget in self.gates[i]:
                             min_val,max_val=float(self.project['gate_configuration'][i]['min']),float(self.project['gate_configuration'][i]['max'])
@@ -1100,7 +1106,7 @@ rm ssh.ppk
                         if self.gates[i][index].get() == "":
                             flow = False
                         else:
-                            if self.project['gate_configuration'][i][1] in ['L1','L2']:
+                            if self.project['gate_configuration'][i]['shortlabel'] in ['L1','L2']:
                                 gates[self.project['gate_configuration'][i]['shortlabel']] = int(self.gates[i][index].get())
                             else:
                                 gates[self.project['gate_configuration'][i]['shortlabel']] = float(self.gates[i][index].get())
@@ -1120,7 +1126,7 @@ rm ssh.ppk
                             flow = False
                             self.A_FlowL.configure(text='')
                         else:
-                            if self.project['gate_configuration'][i][1] in ['L1','L2']:
+                            if self.project['gate_configuration'][i]['shortlabel'] in ['L1','L2']:
                                 gates[self.project['gate_configuration'][i]['shortlabel']] = int(self.a_gates[i].get())
                             else:
                                 gates[self.project['gate_configuration'][i]['shortlabel']] = float(self.a_gates[i].get())
@@ -1132,7 +1138,7 @@ rm ssh.ppk
                             self.A_FlowL.configure(text=str(self.flow.get_total_flow(float(self.ElevF[3].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
                         except:
                             self.A_FlowL.configure(text="Flow Computation Failed")
-            except:
+            except ValueError:
                 mb.showwarning(Name + " Entry Not Valid","Must be a number.")
                 self.recheck = True
                 event.widget.focus_set()
