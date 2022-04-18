@@ -9,21 +9,44 @@ from tkinter import font as tkFont
 from tkinter import messagebox as mb
 import os
 from typing import Dict, List, Tuple
-try:
-    import ratings
-    from PIL import ImageGrab
-    import matplotlib.pyplot as plt
-    from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-    from matplotlib.dates import DateFormatter, DayLocator
-    from matplotlib.ticker import FormatStrFormatter
-    import seaborn as sns
-    import pandas as pd
-except:
-    print("Error loading libraries")
-    time.sleep(5)
+import json
+import ratings
+from PIL import ImageGrab
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from matplotlib.dates import DateFormatter, DayLocator
+from matplotlib.ticker import FormatStrFormatter
+import seaborn as sns
+import pandas as pd
 
 pd.plotting.register_matplotlib_converters()
-
+def interpolateCurve(ys,xs,target_x):
+    if target_x in xs:
+        return ys[xs.index(target_x)]
+    i = 0
+    while target_x > xs[i]:
+        i += 1
+    y0 = ys[i-1]
+    y1 = ys[i]
+    x0 = xs[i-1]
+    x1 = xs[i]
+    return y0 + (target_x - x0)*(y1-y0)/(x1-x0)
+def getTargetElevation(date,lake, ruleCurve):
+    month, day, year = date.split('/')
+    julianDate = datetime(int(year),int(month),int(day))
+    tt = julianDate.timetuple()
+    julianDay = tt.tm_yday
+    julianRuleCurve = {}
+    for key in ruleCurve.keys():
+        julianKey = datetime(int(year),int(key.split('/')[0]),int(key.split('/')[1])).timetuple().tm_yday
+        julianRuleCurve[julianKey] = ruleCurve[key]
+    xs = []
+    for x in julianRuleCurve.keys():
+        xs.append(x)
+    ys = []
+    for x in xs:
+        ys.append(julianRuleCurve[x])
+    return interpolateCurve(ys,xs,julianDay)
 
 class EntryLabel(Message):
     """A standard Message object with default parameters for dlbpy.
@@ -68,6 +91,7 @@ class DlbLabelFrame(LabelFrame):
             borderwidth=2,
             padx=5,
             pady=5,
+            bg='white',
             **kwargs,
         )
 
@@ -146,17 +170,20 @@ def LastGood(Data,datestamp,minutes_back=60):
     try:
         return Data[datestamp]
     except:
-        x = time.mktime(time.strptime(datestamp,'%Y-%m-%d %H:%M'))
-        dates = list(Data.keys())
-        dates.sort()
-        i = -1
-        diff = minutes_back*2*60
-        while (abs(time.mktime(time.strptime(dates[i],'%Y-%m-%d %H:%M')) - x) <= minutes_back*60) or time.mktime(time.strptime(dates[i],'%Y-%m-%d %H:%M')) > x:
-            if abs(time.mktime(time.strptime(dates[i],'%Y-%m-%d %H:%M')) - x) <= diff:
-                diff = abs(time.mktime(time.strptime(dates[i],'%Y-%m-%d %H:%M')) - x)
-                return_value = Data[dates[i]]
-            i -= 1
-        return return_value
+        try:
+            x = time.mktime(time.strptime(datestamp,'%Y-%m-%d %H:%M'))
+            dates = list(Data.keys())
+            dates.sort()
+            i = -1
+            diff = minutes_back*2*60
+            while (abs(time.mktime(time.strptime(dates[i],'%Y-%m-%d %H:%M')) - x) <= minutes_back*60) or time.mktime(time.strptime(dates[i],'%Y-%m-%d %H:%M')) > x:
+                if abs(time.mktime(time.strptime(dates[i],'%Y-%m-%d %H:%M')) - x) <= diff:
+                    diff = abs(time.mktime(time.strptime(dates[i],'%Y-%m-%d %H:%M')) - x)
+                    return_value = Data[dates[i]]
+                i -= 1
+            return return_value
+        except:
+            return ''
     
 def GetBasin(lake):
     """Checks the basin_lakes dictionary for the lake code
@@ -181,18 +208,16 @@ def pad(t,l,s):
         t = s+t
     return t
 def datatypes(rdbfile):
+    StartOfDD = False
     datatypes = []
     for line in rdbfile.split('\n'):
         if line[13:15] == 'TS':
             StartOfDD = 1
         try:
             if line[0] == '#'  and StartOfDD:
-                matchobj = re.match('#\D*(\d+)\D*(\d\d\d\d\d)\w*([^\[\]]*)(\[\\S+.*?\])?',line)
+                matchobj = re.match('#\D*(\d+)\D*(\d\d\d\d\d)\s*([\w\s]+)([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*([,\w\s\[\]]+)*',line)
                 if matchobj:
-                    if matchobj.group(4):
-                        datatypes.append([matchobj.group(1),matchobj.group(2),matchobj.group(4)])
-                    else:
-                        datatypes.append([matchobj.group(1),matchobj.group(2),'Bar'])
+                    datatypes.append(matchobj.groups())
         except:
             pass
     return datatypes
@@ -201,10 +226,16 @@ class gui:
     Lakes are presented in a dropdown menu sorted alphabeticly.  A "Load Entry Sheet" Button
     will launch the DLB Entry Form"""
     def __init__(self):
-        self.Lakes = {'Barren':'BRR','Buckhorn':'BHR','Brookville':'BVR',
-                      'Caesar Creek':'CCK','Cagles Mill':'CMR','Carr Creek':'CFK','Cave Run':'CRR','C J Brown':'CBR','C M Harden':'CHL',
-                      'Green':'GRR','Monroe':'MNR','Nolin':'NRR','Rough':'RRR','Patoka':'PRR',
-                      'Taylorsville':'TVL','WestFork':'WFR','W H Harsha':'WHL'}
+        self.testmode = False
+        if self.testmode:
+            self.directory = r'o:\ed\public\projectdata\ed-t\ed-tw-perm\dlb_testing'
+        else:
+            self.directory = r'o:\ed\public\dlb'
+        self.master_dictionary = json.load(open(r'O:\ed\public\dlb\dlbpy\bin\master_dictionary.json','r'))
+        lakelist = []
+        for project in self.master_dictionary['projects'].keys():
+            lakelist.append(self.master_dictionary['projects'][project]['name'])
+        lakelist.sort()
         self.root = Tk()
         self.root.title('DLB Input Program')
         self.root.config(background='white')
@@ -214,10 +245,8 @@ class gui:
         self.LaunchCanvas.pack()
         self.tkvar = StringVar(self.root)
         self.tkvar.set('Choose Lake')
-        lakesort= list(self.Lakes.keys())
-        lakesort.sort()
         helv = tkFont.Font(family='Helvetica', size=24)
-        popupMenu1 = OptionMenu(self.LaunchCanvas, self.tkvar, *lakesort)
+        popupMenu1 = OptionMenu(self.LaunchCanvas, self.tkvar, *lakelist)
         popupMenu1.config(font=helv,width=30,height=5)
         self.root.nametowidget(popupMenu1.menuname).config(font=helv)
         popupMenu1.grid(row=0,column = 0, rowspan=2, columnspan=2)
@@ -228,177 +257,75 @@ class gui:
         Launch.grid(row=9, column =0, rowspan=2, columnspan=2)
 
         self.root.mainloop()
+    def process_web_request(self,url):
+        req = urllib.request.Request(url)
+        response = urllib.request.urlopen(req)
+        html = response.read()
+        html = html.decode('utf8')
+        types = datatypes(html)
+        return html,types
+    def store_web_data(self,html,types,loc,parameter,special_code):
+        for line in html.split('\n'):
+            if line.split('\t')[0] == 'agency_cd':
+                offset = line.split('\t').index(special_code+'_'+parameter)
+            if line.split('\t')[0] == 'USGS':
+                try:
+                    self.Data[loc][line.split('\t')[2]] = float(line.split('\t')[offset])
+                except:
+                    pass
     def getData(self):
         """Retrieve data from USGS using the IDs and store the datestamped values in a dictionary object in the self.Data Object keyed off of the loc/parameter
         """
         self.Data = {}
-        code = {'ELEV':'62614','Stage':'00065','Tailwater':'00010=on&cb_00065','Flow':'00060'}
-        Tailwater = {'BHR':'','BRR':'03313000','BVR':'03276000','CBR':'03268100','CCK':'03242350','CFK':'03277450',
-                     'CHL':'03340900','CMR':'03359000','CRR':'03249500','GRR':'03306000','MNR':'03372500','NRR':'03311000',
-                     'PRR':'03374500','RRR':'03318010','TVL':'03295597','WFR':'','WHL':'03247041'}
-        self.River_Stations =     {'BHR':['Tallega','Lock 14'],
-                              'BRR':['Alvaton','Bowling Green','Lock 4 (Woodbury)'],
-                              'BVR':['Alpine','Brookville'],
-                              'CBR':['Eagle City','Springfield (Mad R)'],
-                              'CCK':['Milford','Spring Valley'],
-                              'CFK':['Hazard'],
-                              'CHL':['Coxville'],
-                              'CMR':['Reelsville','Bowling Green','Spencer'],
-                              'CRR':['Farmers','Morehead (TR. C)'],
-                              'GRR':['Columbia','Greensburg'],
-                              'MNR':['Shoals','Petersburg','Bedford'],
-                              'NRR':['Munfordville','Brownsville'],
-                              'PRR':['Jasper'],
-                              'RRR':['Dundee'],
-                              'TVL':['Brashears Creek'],
-                              'WFR':['Reading','Carthage'],
-                              'WHL':['Perintown']}
-        self.OtherStations = {'BRR':['Calhoun'],'NRR':['Lock 4 (Woodbury)','Calhoun'],'RRR':['Lock 4 (Woodbury)','Calhoun'],'GRR':['Munfordville','Lock 4 (Woodbury)','Calhoun'],
-                                     'CHL':['Fincastle','Terre Haute','Mt Carmel'],'CMR':['WhiteRiver@Petersburg'],'MNR':['Mt Carmel'],
-                                     'BVR':['Cincinnati'],'BHR':['Hyden','Wooten','Cincinnati'],'CBR':[],'CCK':['Cincinnati'],'CFK':['Lock 14'],'CRR':['Salyersville','Blue Lick Springs','Catawba','Cincinnati'],
-                                     'PRR':[],'TVL':['Glensboro\nCFS','Shepherdsville'],'WFR':[],'WHL':['Milford','Williamsburg\ncfs','Cincinnati']}
-
-        # limits = [NWS flood stage, WCM (rising) limit] for plot display
-        self.limits = {
-            'CRR': {
-                'Farmers': [None, 12],
-                'Blue Lick Springs': [25, 17],
-                'Catawba': [33, 19],
-                'Cincinnati': [52, 40],
-            }
-        }
-
-        self.usgs ={'BHR':'03280800','BRR':'03312900','BVR':'03275990','CBR':'03268090','CCK':'03242340','CFK':'03277446','CHL':'03340870','CMR':'03358900',
-               'CRR':'03249498','GRR':'03305990','MNR':'03372400','NRR':'03310900','RRR':'03318005','PRR':'03374498','TVL':'03295597','WFR':'03256500','WHL':'03247040',
-               'Hyden':'03280612','Wooten':'03280700','Tallega':'03281000','Lock 14':'03282000',
-               'Alvaton':'03314000','Bowling Green KY':'03314500','Lock 4 (Woodbury)':'03315500',
-               'Alpine':'03275000','Brookville':'03276500',
-               'Eagle City':'03267900','Springfield (Mad R)':'03269500',
-               'Milford':'03245500','Spring Valley':'03242050',
-               'Hazard':'03277500',
-               'Fincastle':'03340800','Ferndale':'03340900','Coxville':'03341300',
-               'Reelsville':'03357500','Bowling Green IN':'03360000','Spencer':'03357000',
-               'Salyersville':'03248300','Farmers':'03249505','Morehead (TR. C)':'03250100',
-               'Greensburg':'03306500','Columbia':'03307000',
-               'Shoals':'03282060','Petersburg':'03373980',
-               'Munfordville':'03308500','Brownsville':'03311505',
-               'Jasper':'03375500',
-               'Dundee':'03319000',
-               'Brashears Creek':'03295890','Glensboro\nCFS':'03295400',
-               'Reading':'03255500','Carthage':'03259000',
-               'Perintown':'03247500',
-               'Calhoun':'03320000','Terre Haute':'03341500','WhiteRiver@Petersburg':'03374000','Bedford':'03371500','Shepherdsville':'03298500','Blue Lick Springs':'03250500',
-               'Catawba':'03253500','Mt Carmel':'03377500','Cincinnati':'03255000','Williamsburg\ncfs':'03246500'}
-        locs = []
-        for i in range(len(self.River_Stations[self.lkname])):
-            locs.append(self.River_Stations[self.lkname][i])
-        try:
-            for i in range(len(self.OtherStations[self.lkname])):
-                if self.OtherStations[self.lkname][i] not in locs:
-                    locs.append(self.OtherStations[self.lkname][i])
-        except:
-            pass
-        parameters = ['Stage']* len(locs)
-        locs.append(self.lkname)
-        locs.append('Tailwater')
-        parameters.append('ELEV')
-        parameters.append('Tailwater')
-        for i in range(len(locs)):
-            try:
-                self.load_status.configure(text="Getting " + locs[i] + " Data from USGS")
-                self.root.update_idletasks()
-                url = ""
-                if locs[i] == 'Bowling Green':
-                    if self.lkname == 'BRR':
-                        station = locs[i] + ' KY'
-                    elif self.lkname == 'CMR':
-                        station = locs[i] + ' IN'
-                elif locs[i] in ['Williamsburg\ncfs','Glensboro\nCFS']:
-                    parameters[i] = 'Flow'
-                    station = locs[i]
-                else:
-                    station = locs[i]
-                if parameters[i] == 'Tailwater':
-                    self.Data['Tailwater'] = {}
-                    self.Data['WaterTemp'] = {}
-                    if Tailwater[self.lkname] != '':
-                        url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code['Tailwater']+'=on&format=rdb&site_no='+Tailwater[self.lkname]+'&period=7'
-                else:
-                    self.Data[locs[i]] = {}
-                    url = 'https://waterdata.usgs.gov/nwis/uv?cb_'+code[parameters[i]]+'=on&format=rdb&site_no='+self.usgs[station]+'&period=7'
-                if len(url) > 0:
-                    req = urllib.request.Request(url)
-                    response = urllib.request.urlopen(req)
-                    html = response.read()
-                    html = html.decode('utf8')
-                    types = datatypes(html)
-                    print (types)
-                    if self.lkname == 'TVL':
-                        for t in types:
-                            if t[2] == '[Tailwater]' and t[1] == '00065':
-                                    tail_off = 2*types.index(t)
-                            if t[2] == 'Bar' and t[1] == '00010':
-                                temp_off = 2*types.index(t)
-                    elif self.lkname in ['BVR','CHL']:
-                        tail_off,temp_off = 0,2
+        self.Data[self.lkname] = {}
+        html, types = self.process_web_request('https://waterdata.usgs.gov/nwis/uv?cb_'+self.master_dictionary['usgs_codes']['Elev']+'=on&format=rdb&site_no='+self.project['usgs_id']+'&period=7')
+        for i in range(len(types)):
+                    if 'special_code' in self.project.keys():
+                        special_code = self.project['special_code']
                     else:
-                        if types[0][1] == '00065':
-                            tail_off,temp_off = 0,2
-                        else:
-                            tail_off,temp_off = 2,0
-                    
-                    for line in html.split('\n'):
-                        if parameters[i] == 'Tailwater':
-                            if line.split('\t')[0] == 'USGS':
-                                try:
-                                    self.Data[locs[i]][line.split('\t')[2]] = float(line.split('\t')[4+tail_off])
-                                except:
-                                    pass
-                                try:
-                                    self.Data['WaterTemp'][line.split('\t')[2]] = float(line.split('\t')[4+temp_off])
-                                except:
-                                    pass
-                        else:
-                            if line.split('\t')[0] == 'USGS':
-                                try:
-                                    self.Data[locs[i]][line.split('\t')[2]] = float(line.split('\t')[4])
-                                except:
-                                    pass
+                        special_code = types[i][0]
+        self.store_web_data(html,types,self.lkname,self.master_dictionary['usgs_codes']['Elev'],special_code)
+        self.Data['Tailwater'] = {}
+        self.Data['WaterTemp'] = {}
+        for loc in self.project["stations"]:
+            try:
+                self.Data[loc['name']] = {}
+                self.load_status.configure(text="Getting " + loc['name'] + " Data from USGS")
+                self.root.update_idletasks()
+                html, types = self.process_web_request('https://waterdata.usgs.gov/nwis/uv?cb_'+self.master_dictionary['usgs_codes'][loc['parameter']]+'=on&format=rdb&site_no='+loc['usgs_id']+'&period=7')
+                for i in range(len(types)):
+                    if 'special_code' in loc.keys():
+                        special_code = loc['special_code']
+                    else:
+                        special_code = types[i][0]
+                self.store_web_data(html,types,loc['name'],self.master_dictionary['usgs_codes'][loc['parameter']],special_code)
             except:
                 pass
+                            
+        for parm, usgs_code, field in [['Tailwater','00065','stage'],['WaterTemp','00010','temp']]:
+            if self.project['tailwater'][field]['usgs_id']:
+                html, types = self.process_web_request('https://waterdata.usgs.gov/nwis/uv?cb_'+self.master_dictionary['usgs_codes']["Tailwater"]+'=on&format=rdb&site_no='+self.project['tailwater'][field]['usgs_id']+'&period=7')
+                if 'code' not in  self.project['tailwater'][field].keys():
+                    for i in range(len(types)):
+                        if usgs_code in types[i]:
+                            special_code = types[i][0]
+                else:
+                    special_code = self.project['tailwater'][field]['code']
+                for var in [html,parm,usgs_code,special_code]:
+                    print (var)
+                self.store_web_data(html,types,parm,usgs_code,special_code)
                         
     def LoadDLB(self):
-        self.lkname = self.Lakes[self.tkvar.get()]
+        for key in self.master_dictionary['projects'].keys():
+            if self.master_dictionary['projects'][key]['name'] == self.tkvar.get():
+                self.lkname = key
+                self.project = self.master_dictionary['projects'][key]
         self.getData()
         self.LaunchCanvas.destroy()
         self.Load_DLB_Interface()
          
     def Load_DLB_Interface(self):
         """Gui interface is built dynamiclly using dictionary lookups to setup gate configurations, data validation criteria, and river stations using the lake code as the lookup"""
-        self.Elev_Limits = {'BHR':[752,877],'BRR':[523,618],'BVR':[735,775],'CBR':[1004,1040],'CCK':[841,904],'CFK':[1012,1083],'CHL':[635,712],'CMR':[631,730],
-                             'CRR':[719,788],'GRR':[663,734],'MNR':[533,574],'NRR':[487,581],'PRR':[527,564],'RRR':[465,554],'TVL':[540,623],'WFR':[670,735.5],'WHL':[724,819]}
-        #Upper Elevation is top of Dam
-        #Lower Elevation is winter pool -5
-        self.extra_blanks = {'BHR':0,'BRR':0,'BVR':0,'CBR':0,'CCK':0,'CFK':0,'CHL':0,'CMR':0,
-                              'CRR':0,'GRR':0,'MNR':0,'NRR':0,'PRR':4,'RRR':0,'TVL':0,'WFR':0,'WHL':0}
-        self.Gate_configuration = {'BHR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1)],
-                              'BRR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',2),('Bypass 2 Level','L2',2)],
-                              'BVR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',6),('Bypass 2 Level','L2',6)],
-                              'CBR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1)],
-                              'CCK':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',4),('Bypass 2 Level','L2',4)],
-                              'CFK':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',3),('Bypass 2 Level','L2',3)],
-                              'CHL':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1)],
-                              'CMR':[('Main Gate','MG1',1),('Bypass 1 Opening','BP1',1)],
-                              'CRR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',3),('Bypass 2 Level','L2',3)],
-                              'GRR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',9),('Bypass 2 Level','L2',9)],
-                              'MNR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',7),('Bypass 2 Level','L2',7)],
-                              'NRR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',3),('Bypass 2 Level','L2',3)],
-                              'PRR':[('Main Gate','MG1',0,2),('Bypass 1 Opening','BP1',0,1),('Bypass 2 Opening','BP2',0,1),('Bypass 1 Level','L1',1,3),('Bypass 2 Level','L2',4,6)],
-                              'RRR':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1)],
-                              'TVL':[('Service Gate 1','MG1',0.6),('Bypass 1 Opening','BP1',1),('Bypass 1 Level','L1',9),('Service Gate 2','MG2',0.6),('Bypass 2 Opening','BP2',1),('Bypass 2 Level','L2',9)],
-                              'WFR':[('Main Gate','MG1',3),('Bypass 1 Opening','BP1',1)],
-                              'WHL':[('Main Gate','MG1',2),('Bypass 1 Opening','BP1',1),('Bypass 2 Opening','BP2',1),('Bypass 1 Level','L1',5),('Bypass 2 Level','L2',5)]}
-
         self.Validating = False
         newWindow = Frame(self.root)
         newWindow.config(background='white')
@@ -409,34 +336,21 @@ class gui:
         self.flow = ratings.GateRatingSet(self.lkname)
         
         gate_settings_frame = self.build_gate_settings_frame(newWindow)
-        gate_settings_frame.config(background='white')
         gate_settings_frame.grid(row=0, column=0, columnspan=4, padx=5, pady=5, sticky='nsew')
         
         pool_change_frame = self.build_pool_change_frame(newWindow)
-        pool_change_frame.config(background='white')
         precip_frame = self.build_precip_frame(newWindow)
-        precip_frame.config(background='white')
         weather_frame = self.build_weather_frame(newWindow)
-        weather_frame.config(background='white')
         weather_frame.grid_propagate(0)  # Fixed width to prevent GUI "bouncing"
         temperature_frame = self.build_temperature_frame(newWindow)
-        temperature_frame.config(background='white')
         for i, frame in enumerate([pool_change_frame, precip_frame, weather_frame, temperature_frame]):
             frame.grid(row=1, column=i, padx=5, pady=5, sticky='nsew')
-            frame.config(background='white')
-
         anticipated_frame = self.build_anticipated_frame(newWindow)
-        anticipated_frame.config(background='white')
         river_stations_frame = self.build_river_stations_frame(newWindow)
-        river_stations_frame.config(background='white')
         for i, frame in enumerate([anticipated_frame, river_stations_frame]):
-            frame.grid(row=2, column=i*2, columnspan=2, padx=5, pady=5, sticky='nsew')  
-            frame.config(background='white')
-
+            frame.grid(row=2, column=i*2, columnspan=2, padx=5, pady=5, sticky='nsew')
         remarks_frame = self.build_remarks_frame(newWindow)
-        remarks_frame.config(background='white')
         remarks_frame.grid(row=3, column=0, columnspan=4, padx=5, pady=5, sticky='nsew')
-
         cp_plots_frame = self.build_cp_plots_frame(newWindow)
         cp_plots_frame.grid(row=4, column=0, columnspan=4, padx=5, pady=5, sticky='nsew')
         cp_plots_frame.config(background='white')
@@ -445,9 +359,8 @@ class gui:
         header_frame.config(background='white')
         project_plots_frame = self.build_project_plots_frame(newWindow)
         project_plots_frame.grid(row=1, column=4, rowspan=4, padx=5, pady=5, sticky='nsew')
-        project_plots_frame.config(background='white')
         self.Load()
-        for i in range(self.extra_blanks[self.lkname]):
+        for i in range(self.project['extra_blanks']):
             self.AddGateRow()
     def build_gate_settings_frame(self, parent: Widget):
         """Returns a DlbLabelFrame containing the gate setting entry fields.
@@ -469,8 +382,8 @@ class gui:
         Label(gate_settings_frame,text ="Elevation",bg='white').grid(row = 0, column = 2)
         Label(gate_settings_frame,text ="Tailwater",bg='white').grid(row = 0, column = 3)
         r,c = 0,4
-        for i in range(len( self.Gate_configuration[lkname])):
-            Label(gate_settings_frame,text= self.Gate_configuration[lkname][i][0],bg='white').grid(row=r,column=c)
+        for i in range(len( self.project['gate_configuration'])):
+            Label(gate_settings_frame,text=  self.project['gate_configuration'][i]['label'],bg='white').grid(row=r,column=c)
             c+=1
         self.DateF = []
         self.TimeF = []
@@ -487,7 +400,7 @@ class gui:
         self.TkDate.trace('w', self.Load)
         self.gates = []
         self.FlowL = []
-        for j in range(len( self.Gate_configuration[lkname])):
+        for j in range(len(  self.project['gate_configuration'])):
             self.gates.append([])
         for i in range(20):
             self.DateF.append(Label(gate_settings_frame,bg='white'))
@@ -497,10 +410,10 @@ class gui:
             self.ElevF[i].bind('<FocusOut>',self.Validate)
             self.TailWaterF.append(Entry(gate_settings_frame, width=10,relief=GROOVE,bd=4))
             self.TailWaterF[i].bind('<FocusOut>',self.Validate)
-            for j in range(len( self.Gate_configuration[lkname])):
+            for j in range(len(  self.project['gate_configuration'])):
                 self.gates[j].append(Entry(gate_settings_frame, width=10,relief=GROOVE,bd=4))
                 self.gates[j][i].bind('<FocusOut>',self.Validate)
-            self.FlowL.append(Label(gate_settings_frame))
+            self.FlowL.append(Label(gate_settings_frame,bg='white'))
         Label(gate_settings_frame,text="Outflow (cfs)",bg='white').grid(row=0,column=j+5)
         for i in range(j+6):
             gate_settings_frame.columnconfigure(i, minsize=50, weight=1)
@@ -525,7 +438,7 @@ class gui:
             self.TimeF[self.numrows].grid(row=self.numrows+1,column=1)
             self.ElevF[self.numrows].grid(row=self.numrows+1,column=2)
             self.TailWaterF[self.numrows].grid(row=self.numrows+1,column=3)
-            for j in range(len( self.Gate_configuration[self.lkname])):
+            for j in range(len(  self.project['gate_configuration'])):
                 self.gates[j][self.numrows].grid(row=self.numrows+1,column=j+4)
             self.FlowL[self.numrows].grid(row=self.numrows+1,column=j+5)
             self.gate_buttons_frame.grid(row=self.numrows+2, column=0, columnspan=j+6, pady=(10, 0), sticky='nsew')
@@ -551,7 +464,7 @@ class gui:
             self.TimeF[self.numrows].grid_remove()
             self.ElevF[self.numrows].grid_remove()
             self.TailWaterF[self.numrows].grid_remove()
-            for j in range(len( self.Gate_configuration[self.lkname])):
+            for j in range(len( self.project['gate_configuration'])):
                 self.gates[j][self.numrows].delete(0,"end")
                 self.gates[j][self.numrows].grid_remove()
             self.FlowL[self.numrows].grid_remove()
@@ -687,12 +600,12 @@ class gui:
         anticipated_frame = DlbLabelFrame(parent, "Anticipated Settings (Next 0600)")
         gate_pairs = []
         self.a_gates = []
-        for i, gate in enumerate(self.Gate_configuration[self.lkname]):
-            label = gate[0]
+        for i, gate in enumerate(self.project['gate_configuration']):
+            label = gate['label']
             entry = Entry(anticipated_frame, width=7,relief=GROOVE,bd=4)
             self.a_gates.append(entry)
             gate_pairs.append((label, entry))
-        self.A_FlowL = Label(anticipated_frame)
+        self.A_FlowL = Label(anticipated_frame,bg='white')
         gate_pairs.append(("Outflow (cfs)", self.A_FlowL))
         self.layout_entry_grid(anticipated_frame, gate_pairs)
         for label, entry in gate_pairs:
@@ -711,19 +624,21 @@ class gui:
         river_stations_frame = DlbLabelFrame(parent, "River Stations")
         self.r_station = []
         station_pairs = []
-        for station_name in self.River_Stations[self.lkname]:
-            entry = Entry(river_stations_frame, width=7,relief=GROOVE,bd=4)
-            station_pairs.append((station_name, entry))
-            self.r_station.append(entry)
-        mon,day,year = self.Date.split('/')
-        datetime_str = year + '-' + pad(mon,2,'0') + '-'+pad(day,2,'0') + ' 06:00'
-        for station_name in self.OtherStations[self.lkname]:
-            try:
-                stage = str(self.Data[station_name][datetime_str])
-            except:
-                stage = ""
-            stage_label = Label(river_stations_frame, text=stage)
-            station_pairs.append((station_name, stage_label))
+        for station in self.project['stations']:
+            station_name = station['name']
+            if station['entry']:
+                entry = Entry(river_stations_frame, width=7,relief=GROOVE,bd=4)
+                station_pairs.append((station_name, entry))
+                self.r_station.append(entry)
+            else:
+                mon,day,year = self.Date.split('/')
+                datetime_str = year + '-' + pad(mon,2,'0') + '-'+pad(day,2,'0') + ' 06:00'
+                try:
+                    stage = str(self.Data[station_name][datetime_str])
+                except:
+                    stage = ""
+                stage_label = Label(river_stations_frame, text=stage)
+                station_pairs.append((station_name, stage_label))
         self.layout_entry_grid(river_stations_frame, station_pairs)
         return river_stations_frame
     
@@ -749,34 +664,35 @@ class gui:
         Args:
             parent: The parent frame of the cp_plots_frame.
         """
+        print_limits_message = False
         cp_plots_frame = DlbLabelFrame(parent, "Control Point Plots")
-        stations = self.River_Stations[self.lkname] + self.OtherStations[self.lkname]
         self.cp_plots = []
-        for i, station in enumerate(stations):
+        for i in range(len(self.project['stations'])):
+            station = self.project['stations'][i]['name']
             limits = None
-            if self.lkname in self.limits:
-                if station in self.limits[self.lkname]:
-                    limits = self.limits[self.lkname][station]
+            if 'limits' in self.project['stations'][i].keys():
+                limits = self.project['stations'][i]['limits']
+                print_limits_message = True
             plot = build_plot(cp_plots_frame, self.Data[station], station, limits)
             self.cp_plots.append(plot.get_tk_widget())
             self.cp_plots[-1].grid(row=0, column=i, padx=5)
             cp_plots_frame.columnconfigure(i, weight=1)
-        if self.lkname in self.limits:
+        if print_limits_message:
             wcm_note = "Black (dotted) line: Water Control Manual operational limit.  Flood setting should be used if stage is above this limit and rising unless directed otherwise by Water Management."
             wcm_label = Label(cp_plots_frame, text=wcm_note)
-            wcm_label.grid(row=1, column=0, columnspan=len(stations))
+            wcm_label.grid(row=1, column=0, columnspan=len(self.project['stations']))
             nws_note = "Red (dashed) line: National Weather Service flood stage."
             nws_label = Label(cp_plots_frame, text=nws_note)
-            nws_label.grid(row=2, column=0, columnspan=len(stations))
+            nws_label.grid(row=2, column=0, columnspan=len(self.project['stations']))
         cp_plots_frame.rowconfigure(0, weight=1)
         for p in self.cp_plots:
             p.bind("<Button-1>",self.get_web_table)
         return cp_plots_frame
     def get_web_table(self,event):
         index = self.cp_plots.index(event.widget)
-        stations = self.River_Stations[self.lkname] + self.OtherStations[self.lkname]
+        stations = self.project['stations']
         station = stations[index]
-        webaddress = 'https://waterdata.usgs.gov/nwis/uv?cb_00060=on&cb_00065=on&format=html&site_no='+self.usgs[station]+'&period=1'
+        webaddress = 'https://waterdata.usgs.gov/nwis/uv?cb_00060=on&cb_00065=on&format=html&site_no='+station['usgs_id']+'&period=1'
         os.system('start "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" "'+ webaddress +'"')
     def build_header_frame(self, parent):
         """Returns a Frame containing the main header info and controls.
@@ -786,7 +702,7 @@ class gui:
             parent: The parent frame of the header_frame.
         """
         header_frame = Frame(parent, padx=5, pady=10)
-        project_label = Label(header_frame, text=self.lkname, font=("Arial", 25))
+        project_label = Label(header_frame, text=self.lkname, font=("Arial", 25),bg='white')
         project_label.grid(row=0, column=0, pady=(20, 10))
         helv = tkFont.Font(family='Helvetica', size=18)
         date_dropdown = OptionMenu(header_frame, self.TkDate, *self.Entry_dates)
@@ -794,8 +710,11 @@ class gui:
         date_dropdown.grid(row=1, column=0, pady=(10, 10))
         self.root.nametowidget(date_dropdown.menuname).config(font=helv)
         submit_button = Button(header_frame, text="Submit", command=self.Submit)
-        submit_button.config(width=10, height=2, bg='light blue',font=helv)
+        submit_button.config(width=10, height=1, bg='light blue',font=helv)
         submit_button.grid(row=2, column=0, pady=(10, 10))
+        target_elevation = getTargetElevation(self.TkDate.get(),self.lkname,self.project['guide_curve'])
+        self.target_label = Label(header_frame, text="Target Elevation: {:10.2f}".format(target_elevation), font=("Arial", 12))
+        self.target_label.grid(row=3, column=0, pady=(10, 10))
         header_frame.columnconfigure(0, weight=1)
         return header_frame
 
@@ -821,17 +740,18 @@ class gui:
         Finally the send.bat is called to transfer the files to the server."""
         err = self.find_submit_errors()
         try:
-            x0,y0,x1,y1 = (self.DateF[0].winfo_rootx(),self.DateF[0].winfo_rooty()-50,
-                self.infobox.winfo_rootx()+320,
-                self.root.winfo_rooty()+self.root.winfo_height()+150)
+            x0,y0,x1,y1 = (self.DateF[0].winfo_rootx(),self.DateF[0].winfo_rooty(),
+                self.infobox.winfo_rootx(),
+                self.infobox.winfo_rooty())
             print(x0,y0,x1,y1)
-            im = ImageGrab.grab(bbox =(x0,y0,x1,y1))
-            im.save('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/Captured/'+self.lkname+'.jpg')
+            im = ImageGrab.grab(bbox =(x0-25,y0-48,x1,y1+128),all_screens=True)
+            im.save(self.directory + '/dlbpy/Captured/'+self.lkname+'.jpg')
             self.infobox.configure(text="Submission Started")
             self.root.update_idletasks()
         except:
+            print ("Error in image select")
             im = ImageGrab.grab()
-            im.save('//COE-LRLDFE01LOU/ORG/ED/Public/DLB/dlbpy/Captured/'+self.lkname+'.jpg')
+            im.save(self.directory + '/dlbpy/Captured/'+self.lkname+'.jpg')
             self.infobox.configure(text="Submission Started")
             self.root.update_idletasks()
         if err:
@@ -840,7 +760,7 @@ class gui:
         year,month,day,hour,Min,sec,wd,yd,dst = time.localtime()
         Modtime = str(year)+pad(str(month),2,'0')+pad(str(day),2,'0')+pad(str(hour),2,'0')+pad(str(Min),2,'0')
         basin = GetBasin(self.lkname)
-        f = open('o:/ED/PUBLIC/DLB/OUTPUT/'+self.lkname+'pydlb.txt','w')
+        f = open(self.directory + '/OUTPUT/'+self.lkname+'pydlb.txt','w')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date +' 0000 MODTIME:' + Modtime + '\n')
         f.write('#Lake Levels and Gate Setting\n')
         for i in range(20):
@@ -848,7 +768,7 @@ class gui:
                 if self.TimeF[i].get():
                     if self.ElevF[i].get():
                         gatesComplete = True
-                        for j in range(len(self.Gate_configuration[self.lkname])):
+                        for j in range(len(self.gates)):
                             if self.gates[j][i].get():
                                 pass
                             else:
@@ -857,11 +777,11 @@ class gui:
                             f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() +' ELEV :' + self.ElevF[i].get() +'\n')
                             if self.TailWaterF[i].get():
                                 f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() +' TAILWATER :' + self.TailWaterF[i].get() +'\n')
-                            for j in range(len(self.Gate_configuration[self.lkname])):
-                                f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() + ' ' +  self.Gate_configuration[self.lkname][j][1] + ' :' + self.gates[j][i].get() + '\n')
+                            for j in range(len(self.project['gate_configuration'])):
+                                f.write(basin + ' ' + self.lkname + ' ' + self.DateF[i]['text'] + ' ' + self.TimeF[i].get() + ' ' +  self.project['gate_configuration'][j]['shortlabel'] + ' :' + self.gates[j][i].get() + '\n')
         f.write('#Anticipateed and Gate Setting\n')
         for i in range(len(self.a_gates)):
-            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' + self.Gate_configuration[self.lkname][i][1][:-1] + '_ANTICIPATED_' + self.Gate_configuration[self.lkname][i][1][-1] + ' :' + self.a_gates[i].get() + '\n')
+            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' + self.project['gate_configuration'][i]['shortlabel'][:-1] + '_ANTICIPATED_' + self.project['gate_configuration'][i]['shortlabel'][-1] + ' :' + self.a_gates[i].get() + '\n')
         f.write('#Weather\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 CHANGE :' + self.change.get() +'\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 AMTRAIN :' + self.precip.get() +'\n')
@@ -879,12 +799,13 @@ class gui:
                 value = self.r_station[i].get()
             else:
                 value = "-901"
-            f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' +  self.River_Stations[self.lkname][i] + ' :' + value + '\n')
+            if self.project['stations'][i]['entry']:
+                f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 ' +  self.project['stations'][i]['name'] + ' :' + value + '\n')
         f.write('#Remarks\n')
         f.write(basin + ' ' + self.lkname + ' ' + self.Date + ' 0600 REMARKS :' + self.remarks.get() + '\n')
         f.flush()
         f.close()
-        os.system('copy o:\\ed\\public\\dlb\\output\\' + self.lkname+'pydlb.txt o:\\ed\\public\\dlb\\archive\\' +self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt')
+        os.system('copy ' + self.directory + '\\output\\' + self.lkname+'pydlb.txt ' + self.directory + '\\archive\\' +self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt')
         self.infobox.configure(text="Starting Transfer to WM's Server")
         self.root.update_idletasks()
         f2 = open(r'c:\temp\send.txt','w')
@@ -918,10 +839,11 @@ rm ssh.ppk
 """)
         f3.flush()
         f3.close()
-        os.system(r'c:\temp\send.bat')
+        if not self.testmode:
+            os.system(r'c:\temp\send.bat')
         self.infobox.configure(text="")
         self.root.update_idletasks()
-        path = r"O:\ED\Public\DLB\Archive"
+        path = self.directory + r"\Archive"
         now = time.time()
         for f in os.listdir(path):
             if os.stat(os.path.join(path,f)).st_mtime < now - 30 * 86400:
@@ -959,8 +881,8 @@ rm ssh.ppk
         i = 0
         for row in self.gate_rows[:4]:  # 1200, 1800, 2400, and 0600
             if not all(entry.get() for entry in row):
-                return f'Missing value(s) in gate table at {self.DateF[i]["text"]} on {row[1].get()}\nAll gate settings must be filled in.\nPlease fill in missing setting for this row.'
-                i += 1
+                return f'Missing value(s) in gate table at {self.DateF[i]["text"]} on {self.TimeF[i].get()}\nAll gate settings must be filled in.\nPlease fill in missing setting for this row.'
+            i += 1
         required_fields = [
             ["24-Hour Pool Change", self.change],
             ["24-Hour Precip", self.precip],
@@ -971,10 +893,11 @@ rm ssh.ppk
             ["Max. Temperature", self.maxTemp],
             ["Tailwater Temperature", self.tailTemp],
         ]
-        for i, station in enumerate(self.River_Stations[self.lkname]):
-            required_fields.append([f'{station} Stage', self.r_station[i]])
-        for i, gate in enumerate(self.Gate_configuration[self.lkname]):
-            required_fields.append([f'Ant. {gate[0]}', self.a_gates[i]])
+        for i, station in enumerate(self.project['stations']):
+            if station['entry']:
+                required_fields.append([f"{station['name']} Stage", self.r_station[i]])
+        for i, gate in enumerate(self.project['gate_configuration']):
+            required_fields.append([f'Ant. {gate["label"]}', self.a_gates[i]])
         missing_fields = [x[0] for x in required_fields if x[1].get() == '']
         if self.weather.get() == 'Select Weather':
             missing_fields.append('Present Weather')
@@ -1060,7 +983,7 @@ rm ssh.ppk
                 index = -901
                 if not (event.widget.get() == '') and not self.recheck:
                     if event.widget in self.ElevF:
-                        min_val, max_val = self.Elev_Limits[self.lkname]
+                        min_val, max_val = self.project["elev_limits"]['min'],self.project["elev_limits"]['max']
                         index = self.ElevF.index(event.widget)
                         Name = "Elevation @ " + self.TimeF[index].get()
                         if index == 3:
@@ -1072,44 +995,45 @@ rm ssh.ppk
                             except:
                                 pass
                     if event.widget in self.TailWaterF:
-                        min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
-                    for i in range(len(self.Gate_configuration[self.lkname])):
+                        try:
+                            min_val, max_val = 0,float(self.ElevF[self.TailWaterF.index(event.widget)].get())
+                        except ValueError:
+                            return
+                        #min_val, max_val = 0,150
+                    for i in range(len(self.project['gate_configuration'])):
                         if event.widget in self.gates[i]:
-                            if self.lkname == 'PRR':
-                                min_val,max_val=float(self.Gate_configuration[self.lkname][i][2]),float(self.Gate_configuration[self.lkname][i][3])
-                                if self.Gate_configuration[self.lkname][i][1][0] == 'L':
-                                    if int(event.widget.get()) == 0:
-                                        return
-                            else:
-                                min_val,max_val = 0,float(self.Gate_configuration[self.lkname][i][2])
+                            min_val,max_val=float(self.project['gate_configuration'][i]['min']),float(self.project['gate_configuration'][i]['max'])
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'L':
+                                if int(event.widget.get()) == 0:
+                                    return
                             index = self.gates[i].index(event.widget)
-                            Name = self.Gate_configuration[self.lkname][i][1] + " @ " + self.TimeF[index].get()
-                            if self.Gate_configuration[self.lkname][i][1][0] == 'M' and self.lkname not in ['CMR','CHL']:
+                            Name = self.project['gate_configuration'][i]['shortlabel'] + " @ " + self.TimeF[index].get()
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'M' and not self.project['main_and_bypasses']:
                                 try:
                                     if float(event.widget.get()) > 0:
-                                        for j in range(len(self.Gate_configuration[self.lkname])):
-                                            if self.Gate_configuration[self.lkname][j][1][0] == 'B' and float(self.gates[j][index].get()) > 0:
+                                        for j in range(len(self.project['gate_configuration'])):
+                                            if self.project['gate_configuration'][j]['shortlabel'][0] == 'B' and float(self.gates[j][index].get()) > 0:
                                                 self.recheck = True
                                                 mb.showwarning("Odd Gate Setting","It's Unusal to have Main Gate and Bypasses both open")
                                 except:
                                     pass
-                            if self.Gate_configuration[self.lkname][i][1][0] == 'B' and self.lkname != 'TVL':
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'B' and not self.project['main_gate_levels']:
                                 if float(event.widget.get()) == 0.0:
-                                    for j in range(len(self.Gate_configuration[self.lkname])):
-                                        if self.Gate_configuration[self.lkname][j][1][0] == 'L':
-                                            if self.Gate_configuration[self.lkname][j][1][-1] == self.Gate_configuration[self.lkname][i][1][-1]:
+                                    for j in range(len(self.project['gate_configuration'])):
+                                        if self.project['gate_configuration'][j]['shortlabel'][0] == 'L':
+                                            if self.project['gate_configuration'][j]['shortlabel'][-1] == self.project['gate_configuration'][i]['shortlabel'][-1]:
                                                 self.gates[j][index].delete(0,'end')
                                                 self.gates[j][index].insert(0,'0')
                                 if float(event.widget.get()) > 0:
-                                    for j in range(len(self.Gate_configuration[self.lkname])):
-                                        if self.Gate_configuration[self.lkname][j][1][0] == 'M' and self.lkname not in ['CMR','CHL']:
+                                    for j in range(len(self.project['gate_configuration'])):
+                                        if self.project['gate_configuration'][j]['shortlabel'][0] == 'M' and not self.project['main_and_bypasses']:
                                             try:
                                                 if float(self.gates[j][index].get()) > 0:
                                                     self.recheck = True
                                                     mb.showwarning("Odd Gate Setting","It's Unusal to have Main Gate and Bypasses both open")
                                             except:
                                                 pass
-                            if self.Gate_configuration[self.lkname][i][1][0] == 'L':
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'L':
                                 try:
                                     int(event.widget.get())
                                 except:
@@ -1119,19 +1043,16 @@ rm ssh.ppk
                                     return
                         if event.widget == self.a_gates[i]:
                             index = -1
-                            if self.lkname == 'PRR':
-                                min_val,max_val=float(self.Gate_configuration[self.lkname][i][2]),float(self.Gate_configuration[self.lkname][i][3])
-                            else:
-                                min_val,max_val = 0,float(self.Gate_configuration[self.lkname][i][2])
-                                Name = self.Gate_configuration[self.lkname][i][1] + " Anticipated"
-                            if self.Gate_configuration[self.lkname][i][1][0] == 'B' and self.lkname != 'TVL':
+                            min_val,max_val=float(self.project['gate_configuration'][i]['min']),float(self.project['gate_configuration'][i]['max'])
+                            Name = self.project['gate_configuration'][i]['shortlabel'] + " Anticipated"
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'B' and not self.project['main_gate_levels']:
                                 if float(event.widget.get()) == 0.0:
-                                    for j in range(len(self.Gate_configuration[self.lkname])):
-                                        if self.Gate_configuration[self.lkname][j][1][0] == 'L':
-                                            if self.Gate_configuration[self.lkname][j][1][-1] == self.Gate_configuration[self.lkname][i][1][-1]:
+                                    for j in range(len(self.project['gate_configuration'])):
+                                        if self.project['gate_configuration'][j]['shortlabel'][0] == 'L':
+                                            if self.project['gate_configuration'][j]['shortlabel'][-1] == self.project['gate_configuration'][i]['shortlabel'][-1]:
                                                 self.a_gates[j].delete(0,'end')
                                                 self.a_gates[j].insert(0,'0')
-                            if self.Gate_configuration[self.lkname][i][1][0] == 'L':
+                            if self.project['gate_configuration'][i]['shortlabel'][0] == 'L':
                                 try:
                                     int(event.widget.get())
                                 except:
@@ -1181,14 +1102,14 @@ rm ssh.ppk
                 flow = True
                 if index > -1:
                     gates = {}
-                    for i in range(len(self.Gate_configuration[self.lkname])):
+                    for i in range(len(self.project['gate_configuration'])):
                         if self.gates[i][index].get() == "":
                             flow = False
                         else:
-                            if self.Gate_configuration[self.lkname][i][1] in ['L1','L2']:
-                                gates[self.Gate_configuration[self.lkname][i][1]] = int(self.gates[i][index].get())
+                            if self.project['gate_configuration'][i]['shortlabel'] in ['L1','L2']:
+                                gates[self.project['gate_configuration'][i]['shortlabel']] = int(self.gates[i][index].get())
                             else:
-                                gates[self.Gate_configuration[self.lkname][i][1]] = float(self.gates[i][index].get())
+                                gates[self.project['gate_configuration'][i]['shortlabel']] = float(self.gates[i][index].get())
                     for key in ['MG1','MG2','BP1','BP2','L1','L2']:
                         if key not in gates.keys():
                             gates[key] = 0
@@ -1200,15 +1121,15 @@ rm ssh.ppk
                 flow = True
                 if index == -1:
                     gates = {}
-                    for i in range(len(self.Gate_configuration[self.lkname])):
+                    for i in range(len(self.project['gate_configuration'])):
                         if self.a_gates[i].get() == "":
                             flow = False
                             self.A_FlowL.configure(text='')
                         else:
-                            if self.Gate_configuration[self.lkname][i][1] in ['L1','L2']:
-                                gates[self.Gate_configuration[self.lkname][i][1]] = int(self.a_gates[i].get())
+                            if self.project['gate_configuration'][i]['shortlabel'] in ['L1','L2']:
+                                gates[self.project['gate_configuration'][i]['shortlabel']] = int(self.a_gates[i].get())
                             else:
-                                gates[self.Gate_configuration[self.lkname][i][1]] = float(self.a_gates[i].get())
+                                gates[self.project['gate_configuration'][i]['shortlabel']] = float(self.a_gates[i].get())
                     for key in ['MG1','MG2','BP1','BP2','L1','L2']:
                         if key not in gates.keys():
                             gates[key] = 0
@@ -1217,7 +1138,7 @@ rm ssh.ppk
                             self.A_FlowL.configure(text=str(self.flow.get_total_flow(float(self.ElevF[3].get()),gates['MG1'],gates['MG2'],gates['BP1'],gates['BP2'],gates['L1'],gates['L2'])))
                         except:
                             self.A_FlowL.configure(text="Flow Computation Failed")
-            except:
+            except ValueError:
                 mb.showwarning(Name + " Entry Not Valid","Must be a number.")
                 self.recheck = True
                 event.widget.focus_set()
@@ -1226,7 +1147,9 @@ rm ssh.ppk
         Parses the file and populates the entry objects"""
         self.Validating = False
         self.Date = self.TkDate.get()
-        filename = 'o:\\ed\\public\\dlb\\archive\\'+self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt'
+        target_elevation = getTargetElevation(self.TkDate.get(),self.lkname,self.project['guide_curve'])
+        self.target_label.configure(text="Target Elevation: {:10.2f}".format(target_elevation))
+        filename = self.directory + '\\archive\\'+self.lkname+'pydlb'+self.Date.replace('/','-')+'.txt'
         self.Clear()
         if exists(filename):
             f = open(filename,'r')
@@ -1327,11 +1250,8 @@ rm ssh.ppk
             except:
                 pass
             mon,day,year = self.Date.split('/')
-            for i in range(len( self.River_Stations[self.lkname])):
-                try:
-                    self.r_station[i].insert(0,LastGood(self.Data[self.River_Stations[self.lkname][i]], year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'))
-                except:
-                    self.r_station[i].insert(0,'0')
+            for i in range(len( self.r_station)):
+                self.r_station[i].insert(0,LastGood(self.Data[self.project['stations'][i]['name']],year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'))
             try:
                 self.tailTemp.insert(0,self.Data['WaterTemp'][year+'-'+pad(mon,2,'0')+'-'+pad(day,2,'0') + ' 06:00'])
             except:
@@ -1352,9 +1272,9 @@ rm ssh.ppk
         for o in [self.change,self.precip,self.snow,self.swe,self.curTemp,self.minTemp,self.maxTemp,self.tailTemp]:
             o.delete(0,"end")
         self.weather.set('Select Weather')
-        for i in range(len( self.Gate_configuration[self.lkname])):
+        for i in range(len(  self.project['gate_configuration'])):
             self.a_gates[i].delete(0,"end")
-        for i in range(len( self.River_Stations[self.lkname])):
+        for i in range(len( self.r_station)):
             self.r_station[i].delete(0,"end")
         self.remarks.delete(0,"end")
 if __name__ == "__main__":
